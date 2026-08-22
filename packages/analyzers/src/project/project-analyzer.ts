@@ -6,6 +6,10 @@ import {
   resolve,
 } from "node:path";
 
+import {
+  runRules,
+} from "@react-doctor/core";
+
 import type {
   AnalysisContext,
   DoctorConfig,
@@ -102,14 +106,14 @@ export async function analyzeProject(
         parsed.sourceFile,
       );
 
-    for (const rule of options.rules) {
-      const ruleDiagnostics =
-        rule.analyze(context);
+    const ruleResult = runRules(
+      options.rules,
+      context,
+    );
 
-      diagnostics.push(
-        ...ruleDiagnostics,
-      );
-    }
+    diagnostics.push(
+      ...ruleResult.diagnostics,
+    );
   }
 
   return {
