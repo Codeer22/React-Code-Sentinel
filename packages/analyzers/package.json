@@ -12,7 +12,8 @@
     }
   },
   "dependencies": {
-    "@react-doctor/core": "0.1.0"
+    "@react-doctor/core": "0.1.0",
+    "@typescript/typescript6": "^6.0.2"
   },
   "scripts": {
     "build": "tsc",

@@ -3,10 +3,11 @@ import type {
   DiagnosticCategory,
 } from "./diagnostic.js";
 
-export interface RuleContext {
-  readonly filePath: string;
-  readonly sourceText: string;
-}
+import type {
+  AnalysisContext,
+} from "../analysis/context.js";
+
+export interface RuleContext extends AnalysisContext {}
 
 export interface Rule {
   readonly id: string;

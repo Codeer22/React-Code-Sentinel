@@ -15,3 +15,14 @@ export type {
   DoctorConfig,
   RuleLevel,
 } from "./config/config.js";
+
+export type {
+  SourceDocument,
+  SourcePosition as AnalysisSourcePosition,
+  SourceRange,
+} from "./analysis/document.js";
+
+export type {
+  AnalysisContext,
+  ProjectContext,
+} from "./analysis/context.js";
