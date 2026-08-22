@@ -1,7 +1,7 @@
-export {
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
-export {
-  reactRules,
-} from "./registry.js";
+export const reactRules = [
+  noUnstableNestedComponentsRule,
+] as const;

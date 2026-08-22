@@ -7,7 +7,7 @@ import {
 } from "@react-doctor/analyzers";
 
 import {
-  noUnstableNestedComponentsRule,
+  reactRules,
 } from "@react-doctor/react-rules";
 
 import {
@@ -27,9 +27,7 @@ export async function analyzeCommand(
 
   const result = await analyzeProject({
     rootDirectory,
-    rules: [
-      noUnstableNestedComponentsRule,
-    ],
+    rules: reactRules,
   });
 
   console.log(
