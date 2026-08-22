@@ -1,0 +1,22 @@
+{
+  "name": "@react-doctor/analyzers",
+  "version": "0.1.0",
+  "description": "Static analysis modules for React Doctor.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@react-doctor/core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  }
+}

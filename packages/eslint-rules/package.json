@@ -1,0 +1,23 @@
+{
+  "name": "@react-doctor/eslint-rules",
+  "version": "0.1.0",
+  "description": "ESLint integration for React Doctor diagnostics.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@react-doctor/core": "0.1.0",
+    "@react-doctor/react-rules": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  }
+}

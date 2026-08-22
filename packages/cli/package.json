@@ -1,0 +1,19 @@
+{
+  "name": "react-doctor",
+  "version": "0.1.0",
+  "description": "Diagnose React codebase health.",
+  "type": "module",
+  "bin": {
+    "react-doctor": "./dist/cli.js"
+  },
+  "dependencies": {
+    "@react-doctor/core": "0.1.0",
+    "@react-doctor/analyzers": "0.1.0",
+    "@react-doctor/react-rules": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  }
+}
