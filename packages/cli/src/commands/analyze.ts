@@ -7,6 +7,14 @@ import {
 } from "@react-doctor/analyzers";
 
 import {
+  selectRules,
+} from "@react-doctor/core";
+
+import type {
+  RuleSelectionOptions,
+} from "@react-doctor/core";
+
+import {
   reactRules,
 } from "@react-doctor/react-rules";
 
@@ -16,6 +24,7 @@ import {
 
 export interface AnalyzeCommandOptions {
   readonly directory: string;
+  readonly selection?: RuleSelectionOptions;
 }
 
 export async function analyzeCommand(
@@ -25,13 +34,22 @@ export async function analyzeCommand(
     options.directory,
   );
 
+  const selectedRules = selectRules(
+    reactRules,
+    options.selection,
+  );
+
   const result = await analyzeProject({
     rootDirectory,
-    rules: reactRules,
+    rules: selectedRules,
   });
 
   console.log(
     `Analyzed ${result.filesAnalyzed} source file(s).`,
+  );
+
+  console.log(
+    `Rules: ${selectedRules.length}`,
   );
 
   console.log("");

@@ -4,13 +4,22 @@ import {
   analyzeCommand,
 } from "./commands/analyze.js";
 
-const directory =
-  process.argv[2] ?? ".";
+import {
+  parseCliOptions,
+} from "./commands/options.js";
 
 try {
+  const options = parseCliOptions(
+    process.argv.slice(2),
+  );
+
   const exitCode =
     await analyzeCommand({
-      directory,
+      directory: options.directory,
+      selection: {
+        ruleIds: options.ruleIds,
+        categories: options.categories,
+      },
     });
 
   process.exitCode = exitCode;
