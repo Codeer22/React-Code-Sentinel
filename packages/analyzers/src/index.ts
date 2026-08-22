@@ -25,3 +25,20 @@ export type {
 export type {
   AstRule,
 } from "./analysis/ast-rule.js";
+
+export {
+  discoverSourceFiles,
+} from "./project/file-discovery.js";
+
+export type {
+  FileDiscoveryOptions,
+} from "./project/file-discovery.js";
+
+export {
+  analyzeProject,
+} from "./project/project-analyzer.js";
+
+export type {
+  ProjectAnalysisOptions,
+  ProjectAnalysisResult,
+} from "./project/project-analyzer.js";

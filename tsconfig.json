@@ -21,5 +21,14 @@
 
     "rootDir": ".",
     "noEmit": true
-  }
+  },
+
+  "exclude": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.next/**",
+    "**/.turbo/**",
+    "**/build/**"
+  ]
 }
