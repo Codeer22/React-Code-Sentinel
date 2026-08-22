@@ -34,3 +34,11 @@ export {
 export type {
   RuleRunnerResult,
 } from "./rules/rule-runner.js";
+
+export {
+  selectRules,
+} from "./rules/rule-selection.js";
+
+export type {
+  RuleSelectionOptions,
+} from "./rules/rule-selection.js";
