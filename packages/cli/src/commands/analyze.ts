@@ -26,9 +26,18 @@ import {
   printDiagnostics,
 } from "../output/terminal-reporter.js";
 
+import {
+  printJsonReport,
+} from "../output/json-reporter.js";
+
+import type {
+  OutputFormat,
+} from "./options.js";
+
 export interface AnalyzeCommandOptions {
   readonly directory: string;
   readonly selection?: RuleSelectionOptions;
+  readonly format?: OutputFormat;
 }
 
 export async function analyzeCommand(
@@ -54,25 +63,37 @@ export async function analyzeCommand(
     rules: selectedRules,
   });
 
-  console.log(
-    `Analyzed ${result.filesAnalyzed} source file(s).`,
-  );
+  const format =
+    options.format ?? "terminal";
 
-  console.log(
-    `Rules: ${selectedRules.length}`,
-  );
-
-  if (loadedConfig.path !== undefined) {
+  if (format === "json") {
+    printJsonReport({
+      filesAnalyzed:
+        result.filesAnalyzed,
+      diagnostics:
+        result.diagnostics,
+    });
+  } else {
     console.log(
-      `Config: ${loadedConfig.path}`,
+      `Analyzed ${result.filesAnalyzed} source file(s).`,
+    );
+
+    console.log(
+      `Rules: ${selectedRules.length}`,
+    );
+
+    if (loadedConfig.path !== undefined) {
+      console.log(
+        `Config: ${loadedConfig.path}`,
+      );
+    }
+
+    console.log("");
+
+    printDiagnostics(
+      result.diagnostics,
     );
   }
-
-  console.log("");
-
-  printDiagnostics(
-    result.diagnostics,
-  );
 
   return result.diagnostics.length > 0
     ? 1

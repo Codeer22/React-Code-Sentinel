@@ -1,19 +1,17 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
     "noEmit": false,
+    "rootDir": "./src",
+    "outDir": "./dist-test",
     "types": ["node"]
   },
   "include": [
     "src/**/*.ts"
   ],
   "exclude": [
-    "dist",
-    "dist-test",
     "node_modules",
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "dist",
+    "dist-test"
   ]
 }

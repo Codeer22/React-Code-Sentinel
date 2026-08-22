@@ -145,3 +145,99 @@ test(
     );
   },
 );
+
+test(
+  "parses help flag",
+  () => {
+    const result = parseCliOptions([
+      "--help",
+    ]);
+
+    assert.equal(
+      result.help,
+      true,
+    );
+  },
+);
+
+test(
+  "parses version flag",
+  () => {
+    const result = parseCliOptions([
+      "--version",
+    ]);
+
+    assert.equal(
+      result.version,
+      true,
+    );
+  },
+);
+
+test(
+  "parses list rules flag",
+  () => {
+    const result = parseCliOptions([
+      "--list-rules",
+    ]);
+
+    assert.equal(
+      result.listRules,
+      true,
+    );
+  },
+);
+
+test(
+  "defaults to terminal format",
+  () => {
+    const result = parseCliOptions([]);
+
+    assert.equal(
+      result.format,
+      "terminal",
+    );
+  },
+);
+
+test(
+  "parses json format",
+  () => {
+    const result = parseCliOptions([
+      "--format",
+      "json",
+    ]);
+
+    assert.equal(
+      result.format,
+      "json",
+    );
+  },
+);
+
+test(
+  "rejects unknown format",
+  () => {
+    assert.throws(
+      () =>
+        parseCliOptions([
+          "--format",
+          "xml",
+        ]),
+      /Unknown output format: xml/,
+    );
+  },
+);
+
+test(
+  "rejects missing format",
+  () => {
+    assert.throws(
+      () =>
+        parseCliOptions([
+          "--format",
+        ]),
+      /--format requires a format/,
+    );
+  },
+);
