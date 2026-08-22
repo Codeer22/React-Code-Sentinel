@@ -26,3 +26,11 @@ export type {
   AnalysisContext,
   ProjectContext,
 } from "./analysis/context.js";
+
+export {
+  runRules,
+} from "./rules/rule-runner.js";
+
+export type {
+  RuleRunnerResult,
+} from "./rules/rule-runner.js";
