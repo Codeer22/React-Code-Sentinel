@@ -15,9 +15,12 @@ export interface RuleRunnerResult {
   readonly diagnostics: readonly Diagnostic[];
 }
 
-export function runRules(
-  rules: readonly Rule[],
-  context: AnalysisContext,
+export function runRules<
+  TContext extends AnalysisContext,
+  TRule extends RuleLike<TContext>,
+>(
+  rules: readonly TRule[],
+  context: TContext,
 ): RuleRunnerResult {
   const diagnostics: Diagnostic[] = [];
 
@@ -48,6 +51,15 @@ export function runRules(
   return {
     diagnostics,
   };
+}
+
+interface RuleLike<
+  TContext extends AnalysisContext,
+> {
+  readonly id: string;
+  analyze(
+    context: TContext,
+  ): readonly Diagnostic[];
 }
 
 function applySeverity(

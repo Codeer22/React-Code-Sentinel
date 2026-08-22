@@ -40,3 +40,4 @@ function getScriptKind(filePath: string): ts.ScriptKind {
 
   return ts.ScriptKind.JS;
 }
+

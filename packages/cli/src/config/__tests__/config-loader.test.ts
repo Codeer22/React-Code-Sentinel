@@ -29,7 +29,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-config-",
+          "react-code-sentinel.config-",
         ),
       );
 
@@ -67,7 +67,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-config-",
+          "react-code-sentinel.config-",
         ),
       );
 
@@ -75,7 +75,7 @@ test(
       await writeFile(
         join(
           directory,
-          "react-doctor.config.js",
+          "react-code-sentinel.config.js",
         ),
         [
           "export default {",
@@ -103,7 +103,7 @@ test(
         result.path,
         join(
           directory,
-          "react-doctor.config.js",
+          "react-code-sentinel.config.js",
         ),
       );
     } finally {
@@ -117,3 +117,4 @@ test(
     }
   },
 );
+

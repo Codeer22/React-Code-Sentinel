@@ -1,7 +1,7 @@
 import type {
   Diagnostic,
   DiagnosticCategory,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   AstAnalysisContext,
@@ -17,3 +17,4 @@ export interface AstRule {
     context: AstAnalysisContext,
   ): readonly Diagnostic[];
 }
+

@@ -1,15 +1,15 @@
 {
-  "name": "react-doctor",
+  "name": "react-code-sentinel",
   "version": "0.1.0",
   "description": "Diagnose React codebase health.",
   "type": "module",
   "bin": {
-    "react-doctor": "./dist/cli.js"
+    "react-code-sentinel": "./dist/cli.js"
   },
   "dependencies": {
-    "@react-doctor/core": "0.1.0",
-    "@react-doctor/analyzers": "0.1.0",
-    "@react-doctor/react-rules": "0.1.0"
+    "@react-code-sentinel/core": "0.1.0",
+    "@react-code-sentinel/analyzers": "0.1.0",
+    "@react-code-sentinel/react-rules": "0.1.0"
   },
   "scripts": {
     "build": "tsc",
@@ -17,3 +17,4 @@
     "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
   }
 }
+

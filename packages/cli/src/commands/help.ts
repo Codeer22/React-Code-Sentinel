@@ -1,12 +1,12 @@
 export function printHelp(): void {
   console.log(
     [
-      "React Doctor",
+      "React Code Sentinel",
       "",
       "Diagnose React codebase health.",
       "",
       "Usage:",
-      "  react-doctor [directory]",
+      "  react-code-sentinel [directory]",
       "",
       "Options:",
       "  --help, -h             Show help",
@@ -19,3 +19,4 @@ export function printHelp(): void {
     ].join("\n"),
   );
 }
+

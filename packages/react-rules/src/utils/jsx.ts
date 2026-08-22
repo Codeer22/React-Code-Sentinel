@@ -24,3 +24,4 @@ export function containsJsx(node: ts.Node): boolean {
 
   return found;
 }
+

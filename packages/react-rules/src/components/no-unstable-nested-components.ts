@@ -2,15 +2,15 @@ import ts from "@typescript/typescript6";
 
 import type {
   Diagnostic,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   AstRule,
-} from "@react-doctor/analyzers";
+} from "@react-code-sentinel/analyzers";
 
 import {
   walkAst,
-} from "@react-doctor/analyzers";
+} from "@react-code-sentinel/analyzers";
 
 import {
   containsJsx,
@@ -126,3 +126,4 @@ export const noUnstableNestedComponentsRule: AstRule = {
     return diagnostics;
   },
 };
+

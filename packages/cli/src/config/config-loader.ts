@@ -13,7 +13,7 @@ import {
 
 import type {
   DoctorConfig,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export interface LoadConfigOptions {
   readonly directory: string;
@@ -25,7 +25,7 @@ export interface LoadedConfig {
 }
 
 const CONFIG_FILE_NAME =
-  "react-doctor.config.js";
+  "react-code-sentinel.config.js";
 
 export async function loadConfig(
   options: LoadConfigOptions,
@@ -77,3 +77,4 @@ async function fileExists(
     return false;
   }
 }
+

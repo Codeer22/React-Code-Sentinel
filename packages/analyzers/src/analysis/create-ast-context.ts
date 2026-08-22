@@ -1,6 +1,6 @@
 import type {
   AnalysisContext,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   SourceFile,
@@ -19,3 +19,4 @@ export function createAstAnalysisContext(
     sourceFile,
   };
 }
+

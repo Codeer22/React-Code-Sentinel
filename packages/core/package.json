@@ -1,7 +1,7 @@
 {
-  "name": "@react-doctor/core",
+  "name": "@react-code-sentinel/core",
   "version": "0.1.0",
-  "description": "Core analysis engine and shared types for React Doctor.",
+  "description": "Core analysis engine and shared types for React Code Sentinel.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,3 +20,4 @@
     "@types/node": "^26.2.0"
   }
 }
+

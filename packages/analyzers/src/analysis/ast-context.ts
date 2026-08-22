@@ -1,6 +1,6 @@
 import type {
   AnalysisContext,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   SourceFile,
@@ -9,3 +9,4 @@ import type {
 export interface AstAnalysisContext extends AnalysisContext {
   readonly sourceFile: SourceFile;
 }
+

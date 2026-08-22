@@ -12,3 +12,4 @@ export interface SourceRange {
   readonly start: SourcePosition;
   readonly end: SourcePosition;
 }
+

@@ -49,7 +49,7 @@ try {
   }
 } catch (error) {
   console.error(
-    "React Doctor failed.",
+    "React Code Sentinel failed.",
   );
 
   if (error instanceof Error) {
@@ -62,3 +62,4 @@ try {
 
   process.exitCode = 2;
 }
+

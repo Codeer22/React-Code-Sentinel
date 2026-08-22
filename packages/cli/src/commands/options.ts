@@ -1,6 +1,6 @@
 import type {
   DiagnosticCategory,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export type OutputFormat =
   | "terminal"
@@ -159,3 +159,4 @@ function isDiagnosticCategory(
     value === "typescript"
   );
 }
+

@@ -4,19 +4,19 @@ import {
 
 import {
   analyzeProject,
-} from "@react-doctor/analyzers";
+} from "@react-code-sentinel/analyzers";
 
 import {
   selectRules,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   RuleSelectionOptions,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import {
   reactRules,
-} from "@react-doctor/react-rules";
+} from "@react-code-sentinel/react-rules";
 
 import {
   loadConfig,
@@ -99,3 +99,4 @@ export async function analyzeCommand(
     ? 1
     : 0;
 }
+

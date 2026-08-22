@@ -1,9 +1,9 @@
 import {
   reactRules,
-} from "@react-doctor/react-rules";
+} from "@react-code-sentinel/react-rules";
 
 export function printRules(): void {
-  console.log("React Doctor Rules");
+  console.log("React Code Sentinel Rules");
   console.log("");
 
   for (const rule of reactRules) {
@@ -13,3 +13,4 @@ export function printRules(): void {
     console.log("");
   }
 }
+

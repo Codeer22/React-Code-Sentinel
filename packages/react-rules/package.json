@@ -1,7 +1,7 @@
 {
-  "name": "@react-doctor/react-rules",
+  "name": "@react-code-sentinel/react-rules",
   "version": "0.1.0",
-  "description": "React-specific diagnostic rules for React Doctor.",
+  "description": "React-specific diagnostic rules for React Code Sentinel.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,8 +12,8 @@
     }
   },
   "dependencies": {
-    "@react-doctor/core": "0.1.0",
-    "@react-doctor/analyzers": "0.1.0"
+    "@react-code-sentinel/core": "0.1.0",
+    "@react-code-sentinel/analyzers": "0.1.0"
   },
   "scripts": {
     "build": "tsc",
@@ -21,3 +21,4 @@
     "test": "node --test"
   }
 }
+

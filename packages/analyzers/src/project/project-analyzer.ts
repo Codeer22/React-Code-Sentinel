@@ -8,13 +8,13 @@ import {
 
 import {
   runRules,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   AnalysisContext,
   DoctorConfig,
   Diagnostic,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import {
   parseSource,
@@ -121,3 +121,4 @@ export async function analyzeProject(
     filesAnalyzed: files.length,
   };
 }
+
