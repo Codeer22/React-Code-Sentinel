@@ -1,7 +1,7 @@
 {
   "name": "@react-doctor/analyzers",
   "version": "0.1.0",
-  "description": "Static analysis modules for React Doctor.",
+  "description": "Project and AST analyzers for React Doctor.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,14 +11,14 @@
       "import": "./dist/index.js"
     }
   },
-  "dependencies": {
-    "@react-doctor/core": "0.1.0",
-    "@typescript/typescript6": "^6.0.2"
-  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node --test"
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@react-doctor/core": "0.1.0",
+    "@typescript/typescript6": "^6.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.2.0"

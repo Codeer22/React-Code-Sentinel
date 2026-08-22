@@ -3,6 +3,7 @@ import {
 } from "node:fs/promises";
 
 import {
+  basename,
   join,
   relative,
   resolve,
@@ -25,8 +26,16 @@ const DEFAULT_IGNORED_DIRECTORIES = new Set([
   ".turbo",
 ]);
 
+const DEFAULT_IGNORED_FILES = new Set([
+  "react-doctor.config.js",
+  "react-doctor.config.mjs",
+  "react-doctor.config.cjs",
+  "react-doctor.config.ts",
+]);
+
 export interface FileDiscoveryOptions {
   readonly ignoreDirectories?: readonly string[];
+  readonly ignoreFiles?: readonly string[];
 }
 
 export async function discoverSourceFiles(
@@ -40,9 +49,16 @@ export async function discoverSourceFiles(
     ...(options.ignoreDirectories ?? []),
   ]);
 
+  const ignoredFiles = new Set([
+    ...DEFAULT_IGNORED_FILES,
+    ...(options.ignoreFiles ?? []),
+  ]);
+
   const files: string[] = [];
 
-  async function visit(directory: string): Promise<void> {
+  async function visit(
+    directory: string,
+  ): Promise<void> {
     const entries = await readdir(directory, {
       withFileTypes: true,
     });
@@ -69,7 +85,17 @@ export async function discoverSourceFiles(
         continue;
       }
 
-      const extension = getExtension(entry.name);
+      if (
+        ignoredFiles.has(
+          basename(entry.name),
+        )
+      ) {
+        continue;
+      }
+
+      const extension = getExtension(
+        entry.name,
+      );
 
       if (!SOURCE_EXTENSIONS.has(extension)) {
         continue;
@@ -91,11 +117,14 @@ export async function discoverSourceFiles(
 function getExtension(
   fileName: string,
 ): string {
-  const lastDot = fileName.lastIndexOf(".");
+  const lastDot =
+    fileName.lastIndexOf(".");
 
   if (lastDot === -1) {
     return "";
   }
 
-  return fileName.slice(lastDot).toLowerCase();
+  return fileName
+    .slice(lastDot)
+    .toLowerCase();
 }

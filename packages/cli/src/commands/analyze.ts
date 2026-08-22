@@ -19,6 +19,10 @@ import {
 } from "@react-doctor/react-rules";
 
 import {
+  loadConfig,
+} from "../config/config-loader.js";
+
+import {
   printDiagnostics,
 } from "../output/terminal-reporter.js";
 
@@ -34,6 +38,11 @@ export async function analyzeCommand(
     options.directory,
   );
 
+  const loadedConfig =
+    await loadConfig({
+      directory: rootDirectory,
+    });
+
   const selectedRules = selectRules(
     reactRules,
     options.selection,
@@ -41,6 +50,7 @@ export async function analyzeCommand(
 
   const result = await analyzeProject({
     rootDirectory,
+    config: loadedConfig.config,
     rules: selectedRules,
   });
 
@@ -51,6 +61,12 @@ export async function analyzeCommand(
   console.log(
     `Rules: ${selectedRules.length}`,
   );
+
+  if (loadedConfig.path !== undefined) {
+    console.log(
+      `Config: ${loadedConfig.path}`,
+    );
+  }
 
   console.log("");
 
