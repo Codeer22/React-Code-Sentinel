@@ -4,6 +4,7 @@ import type {
 
 import type {
   Diagnostic,
+  DiagnosticSeverity,
 } from "../types/diagnostic.js";
 
 import type {
@@ -21,12 +22,42 @@ export function runRules(
   const diagnostics: Diagnostic[] = [];
 
   for (const rule of rules) {
-    const ruleDiagnostics = rule.analyze(context);
+    const level =
+      context.config.rules?.[rule.id];
 
-    diagnostics.push(...ruleDiagnostics);
+    if (level === "off") {
+      continue;
+    }
+
+    const ruleDiagnostics =
+      rule.analyze(context);
+
+    const diagnosticsWithSeverity =
+      level === undefined
+        ? ruleDiagnostics
+        : applySeverity(
+            ruleDiagnostics,
+            level,
+          );
+
+    diagnostics.push(
+      ...diagnosticsWithSeverity,
+    );
   }
 
   return {
     diagnostics,
   };
+}
+
+function applySeverity(
+  diagnostics: readonly Diagnostic[],
+  severity: DiagnosticSeverity,
+): readonly Diagnostic[] {
+  return diagnostics.map(
+    (diagnostic) => ({
+      ...diagnostic,
+      severity,
+    }),
+  );
 }
