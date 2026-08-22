@@ -73,14 +73,24 @@ function isFunctionNode(
 }
 
 export const noUnstableNestedComponentsRule: AstRule = {
-  id: "react/no-unstable-nested-components",
+  meta: {
+    id: "react/no-unstable-nested-components",
 
-  name: "No unstable nested components",
+    name: "No unstable nested components",
 
-  description:
-    "Detects React components declared inside other React components.",
+    description:
+      "Detects React components declared inside other React components.",
 
-  category: "react",
+    category: "react",
+
+    kind: "ast",
+
+    defaultSeverity: "warning",
+
+    recommended: true,
+
+    fixable: false,
+  },
 
   analyze(context) {
     const diagnostics: Diagnostic[] = [];
@@ -126,4 +136,3 @@ export const noUnstableNestedComponentsRule: AstRule = {
     return diagnostics;
   },
 };
-

@@ -8,8 +8,18 @@ import type {
 } from "../types/diagnostic.js";
 
 import type {
-  Rule,
-} from "../types/rule.js";
+  RuleMetadata,
+} from "./rule-types.js";
+
+export interface RuleLike<
+  TContext extends AnalysisContext = AnalysisContext,
+> {
+  readonly meta: RuleMetadata;
+
+  analyze(
+    context: TContext,
+  ): readonly Diagnostic[];
+}
 
 export interface RuleRunnerResult {
   readonly diagnostics: readonly Diagnostic[];
@@ -17,16 +27,15 @@ export interface RuleRunnerResult {
 
 export function runRules<
   TContext extends AnalysisContext,
-  TRule extends RuleLike<TContext>,
 >(
-  rules: readonly TRule[],
+  rules: readonly RuleLike<TContext>[],
   context: TContext,
 ): RuleRunnerResult {
   const diagnostics: Diagnostic[] = [];
 
   for (const rule of rules) {
     const level =
-      context.config.rules?.[rule.id];
+      context.config.rules?.[rule.meta.id];
 
     if (level === "off") {
       continue;
@@ -51,15 +60,6 @@ export function runRules<
   return {
     diagnostics,
   };
-}
-
-interface RuleLike<
-  TContext extends AnalysisContext,
-> {
-  readonly id: string;
-  analyze(
-    context: TContext,
-  ): readonly Diagnostic[];
 }
 
 function applySeverity(

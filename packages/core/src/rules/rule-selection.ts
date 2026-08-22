@@ -2,18 +2,19 @@ import type {
   DiagnosticCategory,
 } from "../types/diagnostic.js";
 
+import type {
+  RuleMetadata,
+} from "./rule-types.js";
+
 export interface RuleSelectionOptions {
   readonly ruleIds?: readonly string[];
   readonly categories?: readonly DiagnosticCategory[];
 }
 
-export interface SelectableRule {
-  readonly id: string;
-  readonly category: DiagnosticCategory;
-}
-
 export function selectRules<
-  T extends SelectableRule,
+  T extends {
+    readonly meta: RuleMetadata;
+  },
 >(
   rules: readonly T[],
   options: RuleSelectionOptions = {},
@@ -27,7 +28,7 @@ export function selectRules<
     if (
       ruleIds !== undefined &&
       ruleIds.length > 0 &&
-      !ruleIds.includes(rule.id)
+      !ruleIds.includes(rule.meta.id)
     ) {
       return false;
     }
@@ -35,7 +36,7 @@ export function selectRules<
     if (
       categories !== undefined &&
       categories.length > 0 &&
-      !categories.includes(rule.category)
+      !categories.includes(rule.meta.category)
     ) {
       return false;
     }
