@@ -5,6 +5,10 @@ import {
 } from "./test-utils.js";
 
 import {
+  noDangerousHtmlRule,
+} from "../components/no-dangerous-html.js";
+
+import {
   noDirectMutationPropsRule,
 } from "../components/no-direct-mutation-props.js";
 
@@ -665,6 +669,118 @@ test(
     assert.equal(
       diagnostic.location.start.column,
       5,
+    );
+  },
+);
+
+test(
+  "no-dangerous-html reports dangerouslySetInnerHTML",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return (
+            <div
+              dangerouslySetInnerHTML={{
+                __html: html,
+              }}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+    assert.equal(
+      diagnostics[0]?.ruleId,
+      "react/no-dangerous-html",
+    );
+    assert.equal(
+      diagnostics[0]?.severity,
+      "warning",
+    );
+    assert.equal(
+      diagnostics[0]?.category,
+      "react",
+    );
+  },
+);
+
+test(
+  "no-dangerous-html reports multiple dangerous HTML attributes",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ first, second }) {
+          return (
+            <>
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: first,
+                }}
+              />
+
+              <span
+                dangerouslySetInnerHTML={{
+                  __html: second,
+                }}
+              />
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-dangerous-html allows normal JSX rendering",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return <div>{html}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-dangerous-html reports correct attribute location",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `export function App({ html }) {
+  return (
+    <div dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+`,
+    );
+
+    assert.equal(diagnostics.length, 1);
+
+    const diagnostic = diagnostics[0];
+
+    assert.ok(diagnostic);
+    assert.ok(diagnostic.location);
+
+    assert.equal(
+      diagnostic.location.start.line,
+      3,
+    );
+
+    assert.equal(
+      diagnostic.location.start.column,
+      10,
     );
   },
 );

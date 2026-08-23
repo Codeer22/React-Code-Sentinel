@@ -24,6 +24,7 @@ test(
         "react/no-useless-fragment",
         "react/no-direct-mutation-state",
         "react/no-direct-mutation-props",
+        "react/no-dangerous-html",
       ],
     );
   },

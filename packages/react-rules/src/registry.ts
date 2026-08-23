@@ -19,6 +19,10 @@ import {
 } from "./components/no-direct-mutation-props.js";
 
 import {
+  noDangerousHtmlRule,
+} from "./components/no-dangerous-html.js";
+
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
@@ -29,6 +33,7 @@ export const reactRules = [
   noUselessFragmentRule,
   noDirectMutationStateRule,
   noDirectMutationPropsRule,
+  noDangerousHtmlRule,
 ] as const;
 
 export const recommendedReactRules =

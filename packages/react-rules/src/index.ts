@@ -23,6 +23,10 @@ export {
 } from "./components/no-direct-mutation-props.js";
 
 export {
+  noDangerousHtmlRule,
+} from "./components/no-dangerous-html.js";
+
+export {
   reactRules,
   recommendedReactRules,
   getReactRules,
