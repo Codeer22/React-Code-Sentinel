@@ -3,12 +3,17 @@ import {
 } from "./components/no-missing-key.js";
 
 import {
+  noArrayIndexKeyRule,
+} from "./components/no-array-index-key.js";
+
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
 export const reactRules = [
   noUnstableNestedComponentsRule,
   noMissingKeyRule,
+  noArrayIndexKeyRule,
 ] as const;
 
 export const recommendedReactRules =
