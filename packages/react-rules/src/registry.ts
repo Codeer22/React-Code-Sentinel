@@ -7,6 +7,10 @@ import {
 } from "./components/no-array-index-key.js";
 
 import {
+  noUselessFragmentRule,
+} from "./components/no-useless-fragment.js";
+
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
@@ -14,6 +18,7 @@ export const reactRules = [
   noUnstableNestedComponentsRule,
   noMissingKeyRule,
   noArrayIndexKeyRule,
+  noUselessFragmentRule,
 ] as const;
 
 export const recommendedReactRules =

@@ -5,6 +5,10 @@ import {
 } from "./test-utils.js";
 
 import {
+  noUselessFragmentRule,
+} from "../components/no-useless-fragment.js";
+
+import {
   noMissingKeyRule,
 } from "../components/no-missing-key.js";
 import {
@@ -359,5 +363,104 @@ test(
       diagnostic.location.start.column,
       10,
     );
+  },
+);
+
+test(
+  "no-useless-fragment reports fragment with one child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              <div>Hello</div>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+
+    const diagnostic = diagnostics[0];
+
+    assert.ok(diagnostic);
+    assert.equal(
+      diagnostic.ruleId,
+      "react/no-useless-fragment",
+    );
+    assert.equal(
+      diagnostic.severity,
+      "warning",
+    );
+    assert.equal(
+      diagnostic.category,
+      "react",
+    );
+  },
+);
+
+test(
+  "no-useless-fragment allows multiple children",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              <div>Hello</div>
+              <span>World</span>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-useless-fragment allows text as the only child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              Hello
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment detects nested useless fragment",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              <>
+                <div>Hello</div>
+              </>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
   },
 );

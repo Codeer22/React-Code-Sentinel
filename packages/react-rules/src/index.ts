@@ -5,10 +5,14 @@ export {
 export {
   noMissingKeyRule,
 } from "./components/no-missing-key.js";
+
 export {
   noArrayIndexKeyRule,
 } from "./components/no-array-index-key.js";
 
+export {
+  noUselessFragmentRule,
+} from "./components/no-useless-fragment.js";
 
 export {
   reactRules,
