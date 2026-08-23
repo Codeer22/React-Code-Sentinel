@@ -1,135 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import ts from "@typescript/typescript6";
-
 import {
-  createAstAnalysisContext,
-  createSemanticAnalysisContext,
-} from "@react-code-sentinel/analyzers";
+  createSemanticContext,
+} from "./helpers/create-semantic-context.js";
 
 import {
   noUnsafePropAccessRule,
 } from "../components/no-unsafe-prop-access.js";
 
-function createContext(
-  sourceText: string,
-) {
-  const rootDirectory =
-    process.cwd();
-
-  const fileName =
-    "unsafe-prop-access-test.tsx";
-
-  const filePath =
-    ts.sys.resolvePath(
-      `${rootDirectory}/${fileName}`,
-    );
-
-  const compilerOptions:
-    ts.CompilerOptions = {
-      target:
-        ts.ScriptTarget.Latest,
-
-      module:
-        ts.ModuleKind.ESNext,
-
-      jsx:
-        ts.JsxEmit.Preserve,
-
-      noEmit: true,
-
-      skipLibCheck: true,
-    };
-
-  const host =
-    ts.createCompilerHost(
-      compilerOptions,
-    );
-
-  const originalReadFile =
-    host.readFile;
-
-  const originalFileExists =
-    host.fileExists;
-
-  host.fileExists = (
-    fileNameToCheck,
-  ) => {
-    if (
-      ts.sys.resolvePath(
-        fileNameToCheck,
-      ) === filePath
-    ) {
-      return true;
-    }
-
-    return originalFileExists(
-      fileNameToCheck,
-    );
-  };
-
-  host.readFile = (
-    fileNameToRead,
-  ) => {
-    if (
-      ts.sys.resolvePath(
-        fileNameToRead,
-      ) === filePath
-    ) {
-      return sourceText;
-    }
-
-    return originalReadFile(
-      fileNameToRead,
-    );
-  };
-
-  const program =
-    ts.createProgram(
-      [filePath],
-      compilerOptions,
-      host,
-    );
-
-  const sourceFile =
-    program.getSourceFile(
-      filePath,
-    );
-
-  assert.ok(sourceFile);
-
-  const astContext =
-    createAstAnalysisContext(
-      {
-        document: {
-          filePath: fileName,
-          sourceText,
-        },
-
-        project: {
-          rootDirectory,
-          files: [fileName],
-        },
-
-        config: {},
-
-        diagnostics: [],
-      },
-      sourceFile,
-    );
-
-  return createSemanticAnalysisContext(
-    astContext,
-    program,
-  );
-}
-
 test(
   "reports unsafe prop access",
   () => {
     const context =
-      createContext(`
+      createSemanticContext(`
         function UserCard(
           props: any,
         ) {
@@ -158,7 +42,7 @@ test(
   "accepts safely typed props",
   () => {
     const context =
-      createContext(`
+      createSemanticContext(`
         interface UserCardProps {
           name: string;
         }
@@ -186,7 +70,7 @@ test(
   "ignores lowercase helper functions",
   () => {
     const context =
-      createContext(`
+      createSemanticContext(`
         function getUser(
           props: any,
         ) {
@@ -210,7 +94,7 @@ test(
   "ignores shadowed props parameters",
   () => {
     const context =
-      createContext(`
+      createSemanticContext(`
         interface CardProps {
           title: string;
         }
@@ -248,7 +132,7 @@ test(
   "reports captured outer props in nested functions",
   () => {
     const context =
-      createContext(`
+      createSemanticContext(`
         function Card(
           props: any,
         ) {
