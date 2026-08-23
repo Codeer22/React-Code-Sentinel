@@ -16,6 +16,7 @@ import type {
 
 import {
   reactRules,
+  recommendedReactRules,
 } from "@react-code-sentinel/react-rules";
 
 import {
@@ -38,6 +39,7 @@ export interface AnalyzeCommandOptions {
   readonly directory: string;
   readonly selection?: RuleSelectionOptions;
   readonly format?: OutputFormat;
+  readonly all?: boolean;
 }
 
 export async function analyzeCommand(
@@ -52,8 +54,13 @@ export async function analyzeCommand(
       directory: rootDirectory,
     });
 
+  const availableRules =
+    options.all === true
+      ? reactRules
+      : recommendedReactRules;
+
   const selectedRules = selectRules(
-    reactRules,
+    availableRules,
     options.selection,
   );
 
@@ -99,4 +106,3 @@ export async function analyzeCommand(
     ? 1
     : 0;
 }
-

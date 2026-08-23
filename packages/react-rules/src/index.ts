@@ -3,6 +3,12 @@ export {
 } from "./components/no-unstable-nested-components.js";
 
 export {
-  reactRules,
-} from "./registry.js";
+  noMissingKeyRule,
+} from "./components/no-missing-key.js";
 
+export {
+  reactRules,
+  recommendedReactRules,
+  getReactRules,
+  getRecommendedReactRules,
+} from "./registry.js";

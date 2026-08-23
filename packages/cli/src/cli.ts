@@ -43,6 +43,7 @@ try {
           categories: options.categories,
         },
         format: options.format,
+        all: options.all,
       });
 
     process.exitCode = exitCode;
@@ -62,4 +63,3 @@ try {
 
   process.exitCode = 2;
 }
-
