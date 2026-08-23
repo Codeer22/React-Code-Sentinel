@@ -37,13 +37,13 @@ import {
 } from "./program-builder.js";
 
 import type {
-  AstRule,
-} from "../analysis/ast-rule.js";
+  AnalyzerRule,
+} from "../analysis/analyzer-rule.js";
 
 export interface ProjectAnalysisOptions {
   readonly rootDirectory: string;
   readonly config?: DoctorConfig;
-  readonly rules: readonly AstRule[];
+  readonly rules: readonly AnalyzerRule[];
 }
 
 export interface ProjectAnalysisResult {

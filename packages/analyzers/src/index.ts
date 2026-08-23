@@ -61,3 +61,6 @@ export {
 export type {
   ProgramBuildOptions,
 } from "./project/program-builder.js";
+export type {
+  AnalyzerRule,
+} from "./analysis/analyzer-rule.js";
