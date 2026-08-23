@@ -784,3 +784,220 @@ test(
     );
   },
 );
+
+test(
+  "no-direct-mutation-props reports direct property assignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          props.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+    assert.equal(
+      diagnostics[0]?.ruleId,
+      "react/no-direct-mutation-props",
+    );
+    assert.equal(
+      diagnostics[0]?.severity,
+      "warning",
+    );
+    assert.equal(
+      diagnostics[0]?.category,
+      "react",
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-props reports nested property mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          props.user.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports compound assignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function Counter(props) {
+          props.count += 1;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports increment mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function Counter(props) {
+          props.count++;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports array mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function Users(props) {
+          props.users.push("new user");
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports element access mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function Users(props) {
+          props.users[0] = "updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props allows reading props",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-props allows creating a new value",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          const copy = {
+            ...props.user,
+          };
+
+          copy.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-props ignores nested function parameters",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          function update(props) {
+            props.name = "Updated";
+          }
+
+          update(otherProps);
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-props still reports outer prop mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          function update(value) {
+            value.name = "Updated";
+          }
+
+          props.name = "Changed";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports destructured prop mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard({ user }) {
+          user.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports multiple destructured prop mutations",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard({ user, items }) {
+          user.name = "Updated";
+          items.push("new item");
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);

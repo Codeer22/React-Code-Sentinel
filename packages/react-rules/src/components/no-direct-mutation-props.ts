@@ -1,5 +1,9 @@
 import ts from "@typescript/typescript6";
 
+import {
+  isReactComponentFunction,
+} from "../utils/components.js";
+
 import type {
   Diagnostic,
 } from "@react-code-sentinel/core";
@@ -80,14 +84,61 @@ function isUnaryMutation(
   );
 }
 
-function getParameterName(
-  parameter: ts.ParameterDeclaration,
-): string | undefined {
-  if (ts.isIdentifier(parameter.name)) {
-    return parameter.name.text;
+function collectBindingNames(
+  name: ts.BindingName,
+  names: Set<string>,
+): void {
+  if (ts.isIdentifier(name)) {
+    names.add(name.text);
+    return;
   }
 
-  return undefined;
+  if (ts.isObjectBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (ts.isBindingElement(element)) {
+        collectBindingNames(
+          element.name,
+          names,
+        );
+      }
+    }
+
+    return;
+  }
+
+  if (ts.isArrayBindingPattern(name)) {
+    for (const element of name.elements) {
+      if (ts.isBindingElement(element)) {
+        collectBindingNames(
+          element.name,
+          names,
+        );
+      }
+    }
+  }
+}
+
+function getPropsParameters(
+  functionNode:
+    | ts.FunctionDeclaration
+    | ts.ArrowFunction
+    | ts.FunctionExpression,
+): ReadonlySet<string> {
+  const names = new Set<string>();
+
+  const firstParameter =
+    functionNode.parameters[0];
+
+  if (firstParameter === undefined) {
+    return names;
+  }
+
+  collectBindingNames(
+    firstParameter.name,
+    names,
+  );
+
+  return names;
 }
 
 function isPropsRoot(
@@ -121,31 +172,7 @@ function isPropsMutationTarget(
   return isPropsRoot(node, propsNames);
 }
 
-function getPropsParameters(
-  functionNode:
-    | ts.FunctionDeclaration
-    | ts.ArrowFunction
-    | ts.FunctionExpression,
-): ReadonlySet<string> {
-  const names = new Set<string>();
-
-  const firstParameter =
-    functionNode.parameters[0];
-
-  if (firstParameter === undefined) {
-    return names;
-  }
-
-  const name = getParameterName(firstParameter);
-
-  if (name !== undefined) {
-    names.add(name);
-  }
-
-  return names;
-}
-
-function isInsideFunction(
+function isNestedFunction(
   node: ts.Node,
 ): boolean {
   return (
@@ -185,6 +212,12 @@ export const noDirectMutationPropsRule: AstRule = {
         | ts.ArrowFunction
         | ts.FunctionExpression,
     ): void {
+      if (
+        !isReactComponentFunction(functionNode)
+      ) {
+        return;
+      }
+
       const propsNames =
         getPropsParameters(functionNode);
 
@@ -195,7 +228,7 @@ export const noDirectMutationPropsRule: AstRule = {
       function visit(node: ts.Node): void {
         if (
           node !== functionNode &&
-          isInsideFunction(node)
+          isNestedFunction(node)
         ) {
           return;
         }
