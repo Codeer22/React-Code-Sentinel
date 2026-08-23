@@ -15,6 +15,10 @@ export {
 } from "./components/no-useless-fragment.js";
 
 export {
+  noDirectMutationStateRule,
+} from "./components/no-direct-mutation-state.js";
+
+export {
   reactRules,
   recommendedReactRules,
   getReactRules,

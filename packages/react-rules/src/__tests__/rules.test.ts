@@ -5,6 +5,10 @@ import {
 } from "./test-utils.js";
 
 import {
+  noDirectMutationStateRule,
+} from "../components/no-direct-mutation-state.js";
+
+import {
   noUselessFragmentRule,
 } from "../components/no-useless-fragment.js";
 
@@ -462,5 +466,201 @@ test(
     );
 
     assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports direct property assignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            this.state.count = 1;
+          }
+
+          render() {
+            return <div>{this.state.count}</div>;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+    assert.equal(
+      diagnostics[0]?.ruleId,
+      "react/no-direct-mutation-state",
+    );
+    assert.equal(
+      diagnostics[0]?.severity,
+      "warning",
+    );
+    assert.equal(
+      diagnostics[0]?.category,
+      "react",
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-state reports compound assignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            this.state.count += 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports increment mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            this.state.count++;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports array mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Users extends React.Component {
+          addUser(user) {
+            this.state.users.push(user);
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports element access mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Users extends React.Component {
+          update(index) {
+            this.state.users[index] = "updated";
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-state allows setState",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            this.setState({
+              count: this.state.count + 1,
+            });
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-state ignores unrelated state variable",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        const state = {
+          count: 0,
+        };
+
+        state.count = 1;
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports multiple mutations",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            this.state.count = 1;
+            this.state.total += 1;
+            this.state.items.push("item");
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 3);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports correct source location",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `class Counter extends React.Component {
+  increment() {
+    this.state.count = 1;
+  }
+}
+`,
+    );
+
+    assert.equal(diagnostics.length, 1);
+
+    const diagnostic = diagnostics[0];
+
+    assert.ok(diagnostic);
+    assert.ok(diagnostic.location);
+
+    assert.equal(
+      diagnostic.location.start.line,
+      3,
+    );
+
+    assert.equal(
+      diagnostic.location.start.column,
+      5,
+    );
   },
 );

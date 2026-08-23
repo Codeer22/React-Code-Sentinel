@@ -11,6 +11,10 @@ import {
 } from "./components/no-useless-fragment.js";
 
 import {
+  noDirectMutationStateRule,
+} from "./components/no-direct-mutation-state.js";
+
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
@@ -19,6 +23,7 @@ export const reactRules = [
   noMissingKeyRule,
   noArrayIndexKeyRule,
   noUselessFragmentRule,
+  noDirectMutationStateRule,
 ] as const;
 
 export const recommendedReactRules =

@@ -22,6 +22,7 @@ test(
         "react/no-missing-key",
         "react/no-array-index-key",
         "react/no-useless-fragment",
+        "react/no-direct-mutation-state",
       ],
     );
   },
