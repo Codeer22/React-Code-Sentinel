@@ -25,6 +25,9 @@ import {
 import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
+import {
+  noImplicitAnyPropsRule,
+} from "./components/no-implicit-any-props.js";
 
 export const reactRules = [
   noUnstableNestedComponentsRule,
@@ -34,6 +37,7 @@ export const reactRules = [
   noDirectMutationStateRule,
   noDirectMutationPropsRule,
   noDangerousHtmlRule,
+  noImplicitAnyPropsRule,
 ] as const;
 
 export const recommendedReactRules =

@@ -25,6 +25,7 @@ test(
         "react/no-direct-mutation-state",
         "react/no-direct-mutation-props",
         "react/no-dangerous-html",
+        "react/no-implicit-any-props",
       ],
     );
   },
@@ -72,9 +73,10 @@ test(
         "react",
       );
 
-      assert.equal(
-        rule.meta.kind,
-        "ast",
+      assert.ok(
+        rule.meta.kind === "ast" ||
+        rule.meta.kind === "semantic" ||
+        rule.meta.kind === "project",
       );
 
       assert.equal(

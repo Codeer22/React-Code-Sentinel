@@ -17,10 +17,6 @@ import type {
 } from "@react-code-sentinel/core";
 
 import {
-  parseSource,
-} from "../parser/source-parser.js";
-
-import {
   createAstAnalysisContext,
 } from "../analysis/create-ast-context.js";
 
@@ -96,10 +92,14 @@ export async function analyzeProject(
       "utf8",
     );
 
-    const parsed = parseSource(
-      filePath,
-      sourceText,
-    );
+    const sourceFile =
+      program.getSourceFile(
+        absolutePath,
+      );
+
+    if (sourceFile === undefined) {
+      continue;
+    }
 
     const coreContext: AnalysisContext = {
       document: {
@@ -117,7 +117,7 @@ export async function analyzeProject(
     const astContext =
       createAstAnalysisContext(
         coreContext,
-        parsed.sourceFile,
+        sourceFile,
       );
 
     const context =

@@ -32,3 +32,6 @@ export {
   getReactRules,
   getRecommendedReactRules,
 } from "./registry.js";
+export {
+  noImplicitAnyPropsRule,
+} from "./components/no-implicit-any-props.js";
