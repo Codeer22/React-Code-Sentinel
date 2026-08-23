@@ -25,8 +25,16 @@ import {
 } from "../analysis/create-ast-context.js";
 
 import {
+  createSemanticAnalysisContext,
+} from "../analysis/create-semantic-context.js";
+
+import {
   discoverSourceFiles,
 } from "./file-discovery.js";
+
+import {
+  createTypeScriptProgram,
+} from "./program-builder.js";
 
 import type {
   AstRule,
@@ -64,12 +72,18 @@ export async function analyzeProject(
     discoveryOptions,
   );
 
-  const diagnostics: Diagnostic[] = [];
-
   const project = {
     rootDirectory,
     files,
   };
+
+  const program =
+    await createTypeScriptProgram({
+      rootDirectory,
+      files,
+    });
+
+  const diagnostics: Diagnostic[] = [];
 
   for (const filePath of files) {
     const absolutePath = resolve(
@@ -100,10 +114,16 @@ export async function analyzeProject(
       diagnostics,
     };
 
-    const context =
+    const astContext =
       createAstAnalysisContext(
         coreContext,
         parsed.sourceFile,
+      );
+
+    const context =
+      createSemanticAnalysisContext(
+        astContext,
+        program,
       );
 
     const ruleResult = runRules(
@@ -121,4 +141,3 @@ export async function analyzeProject(
     filesAnalyzed: files.length,
   };
 }
-
