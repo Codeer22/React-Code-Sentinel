@@ -67,6 +67,7 @@ export const noUnsafePropAccessRule:
             isDirectPropsAccess(
               node,
               component.propsParameter,
+              context.typeChecker,
             )
           ) {
             const propertyType =
@@ -171,9 +172,16 @@ function findContainingComponent(
         current,
       )
     ) {
-      return getReactComponentInfo(
-        current,
-      );
+      const component =
+        getReactComponentInfo(
+          current,
+        );
+
+      if (
+        component !== undefined
+      ) {
+        return component;
+      }
     }
 
     current =
@@ -185,14 +193,35 @@ function findContainingComponent(
 
 function isDirectPropsAccess(
   node: ts.PropertyAccessExpression,
-  propsParameter:
-    ts.ParameterDeclaration,
+  propsParameter: ts.ParameterDeclaration,
+  typeChecker: ts.TypeChecker,
 ): boolean {
-  return (
-    ts.isIdentifier(
+  if (
+    !ts.isIdentifier(
       node.expression,
-    ) &&
-    node.expression.text ===
-      propsParameter.name.getText()
+    )
+  ) {
+    return false;
+  }
+
+  const accessSymbol =
+    typeChecker.getSymbolAtLocation(
+      node.expression,
+    );
+
+  const parameterSymbol =
+    typeChecker.getSymbolAtLocation(
+      propsParameter.name,
+    );
+
+  if (
+    accessSymbol === undefined ||
+    parameterSymbol === undefined
+  ) {
+    return false;
+  }
+
+  return (
+    accessSymbol === parameterSymbol
   );
 }

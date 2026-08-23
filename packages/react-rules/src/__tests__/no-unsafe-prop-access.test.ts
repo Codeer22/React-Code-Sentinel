@@ -205,3 +205,74 @@ test(
     );
   },
 );
+
+test(
+  "ignores shadowed props parameters",
+  () => {
+    const context =
+      createContext(`
+        interface CardProps {
+          title: string;
+        }
+
+        interface OtherProps {
+          value: any;
+        }
+
+        function Card(
+          props: CardProps,
+        ) {
+          function render(
+            props: OtherProps,
+          ) {
+            return props.value;
+          }
+
+          return props.title;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
+
+test(
+  "reports captured outer props in nested functions",
+  () => {
+    const context =
+      createContext(`
+        function Card(
+          props: any,
+        ) {
+          function render() {
+            return props.title;
+          }
+
+          return render();
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+
+    assert.equal(
+      diagnostics[0]?.ruleId,
+      "react/no-unsafe-prop-access",
+    );
+  },
+);
