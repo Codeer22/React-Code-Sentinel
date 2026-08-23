@@ -1,12 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import ts from "@typescript/typescript6";
-
-import type {
-  AnalysisContext,
-} from "@react-code-sentinel/core";
-
 import {
   noMissingKeyRule,
 } from "../components/no-missing-key.js";
@@ -15,44 +9,10 @@ import {
   noUnstableNestedComponentsRule,
 } from "../components/no-unstable-nested-components.js";
 
-function analyze(
-  rule: typeof noMissingKeyRule,
-  sourceText: string,
-  filePath = "App.tsx",
-) {
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
-
-  const context: AnalysisContext & {
-    readonly sourceFile: ts.SourceFile;
-  } = {
-    document: {
-      filePath,
-      sourceText,
-    },
-    project: {
-      rootDirectory: ".",
-      files: [filePath],
-    },
-    config: {
-      rules: {},
-    },
-    diagnostics: [],
-    sourceFile,
-  };
-
-  return rule.analyze(context);
-}
-
 test(
   "no-missing-key reports JSX returned from map without key",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noMissingKeyRule,
       `
         export function Users({ users }) {
@@ -86,7 +46,7 @@ test(
 test(
   "no-missing-key accepts stable key prop",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noMissingKeyRule,
       `
         export function Users({ users }) {
@@ -108,7 +68,7 @@ test(
 test(
   "no-missing-key detects multiple missing keys",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noMissingKeyRule,
       `
         export function Users({ users }) {
@@ -134,7 +94,7 @@ test(
 test(
   "no-missing-key supports block callbacks",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noMissingKeyRule,
       `
         export function Users({ users }) {
@@ -156,7 +116,7 @@ test(
 test(
   "no-missing-key reports correct source location",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noMissingKeyRule,
       `export function Users({ users }) {
   return users.map((user) => (
@@ -196,7 +156,7 @@ test(
 test(
   "no-unstable-nested-components reports nested component",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noUnstableNestedComponentsRule,
       `
         export function Parent() {
@@ -220,7 +180,7 @@ test(
 test(
   "no-unstable-nested-components allows module-level component",
   () => {
-    const diagnostics = analyze(
+    const diagnostics = analyzeRule(
       noUnstableNestedComponentsRule,
       `
         function Child() {
