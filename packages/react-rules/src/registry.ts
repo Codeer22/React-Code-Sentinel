@@ -29,6 +29,10 @@ import {
   noImplicitAnyPropsRule,
 } from "./components/no-implicit-any-props.js";
 
+import {
+  noUnsafePropAccessRule,
+} from "./components/no-unsafe-prop-access.js";
+
 export const reactRules = [
   noUnstableNestedComponentsRule,
   noMissingKeyRule,
@@ -38,6 +42,7 @@ export const reactRules = [
   noDirectMutationPropsRule,
   noDangerousHtmlRule,
   noImplicitAnyPropsRule,
+  noUnsafePropAccessRule,
 ] as const;
 
 export const recommendedReactRules =

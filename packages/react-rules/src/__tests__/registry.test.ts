@@ -26,6 +26,7 @@ test(
         "react/no-direct-mutation-props",
         "react/no-dangerous-html",
         "react/no-implicit-any-props",
+        "react/no-unsafe-prop-access",
       ],
     );
   },

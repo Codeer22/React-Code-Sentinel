@@ -37,6 +37,19 @@ export function getReactComponentInfo(
   };
 }
 
+export function isReactComponentFunction(
+  node: ts.Node,
+): node is
+  | ts.FunctionDeclaration
+  | ts.ArrowFunction
+  | ts.FunctionExpression {
+  return (
+    ts.isFunctionDeclaration(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isFunctionExpression(node)
+  );
+}
+
 function getFunctionName(
   node:
     | ts.FunctionDeclaration
