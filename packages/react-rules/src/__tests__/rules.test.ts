@@ -5,6 +5,10 @@ import {
 } from "./test-utils.js";
 
 import {
+  noDirectMutationPropsRule,
+} from "../components/no-direct-mutation-props.js";
+
+import {
   noDirectMutationStateRule,
 } from "../components/no-direct-mutation-state.js";
 

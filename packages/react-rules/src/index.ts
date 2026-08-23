@@ -19,6 +19,10 @@ export {
 } from "./components/no-direct-mutation-state.js";
 
 export {
+  noDirectMutationPropsRule,
+} from "./components/no-direct-mutation-props.js";
+
+export {
   reactRules,
   recommendedReactRules,
   getReactRules,

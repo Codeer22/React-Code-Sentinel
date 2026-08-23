@@ -15,6 +15,10 @@ import {
 } from "./components/no-direct-mutation-state.js";
 
 import {
+  noDirectMutationPropsRule,
+} from "./components/no-direct-mutation-props.js";
+
+import {
   noUnstableNestedComponentsRule,
 } from "./components/no-unstable-nested-components.js";
 
@@ -24,6 +28,7 @@ export const reactRules = [
   noArrayIndexKeyRule,
   noUselessFragmentRule,
   noDirectMutationStateRule,
+  noDirectMutationPropsRule,
 ] as const;
 
 export const recommendedReactRules =

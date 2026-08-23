@@ -23,6 +23,7 @@ test(
         "react/no-array-index-key",
         "react/no-useless-fragment",
         "react/no-direct-mutation-state",
+        "react/no-direct-mutation-props",
       ],
     );
   },
