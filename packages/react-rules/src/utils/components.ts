@@ -38,3 +38,16 @@ export function getFunctionName(
   return undefined;
 }
 
+export function isReactComponentFunction(
+  node:
+    | ts.FunctionDeclaration
+    | ts.FunctionExpression
+    | ts.ArrowFunction,
+): boolean {
+  const name = getFunctionName(node);
+
+  return (
+    name !== undefined &&
+    isComponentName(name)
+  );
+}

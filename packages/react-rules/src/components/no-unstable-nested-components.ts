@@ -18,7 +18,7 @@ import {
 
 import {
   getFunctionName,
-  isComponentName,
+  isReactComponentFunction,
 } from "../utils/components.js";
 
 function createDiagnostic(
@@ -109,11 +109,11 @@ export const noUnstableNestedComponentsRule: AstRule = {
           functionStack.length > 0;
 
         if (
-          hasParentFunction &&
-          name &&
-          isComponentName(name) &&
-          containsJsx(node)
-        ) {
+  hasParentFunction &&
+  name &&
+  isReactComponentFunction(node) &&
+  containsJsx(node)
+) {
           diagnostics.push(
             createDiagnostic(
               context.document.filePath,
