@@ -1001,3 +1001,64 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+test(
+  "no-missing-key accepts parenthesized JSX",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => (
+            (
+              <div>{user.name}</div>
+            )
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key accepts keyed JSX inside parenthesized expression",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => (
+            (
+              <div key={user.id}>{user.name}</div>
+            )
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-missing-key reports multiple JSX returns from block callback",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            if (user.active) {
+              return <div>{user.name}</div>;
+            }
+
+            return <span>{user.email}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
