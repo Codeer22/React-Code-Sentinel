@@ -4,17 +4,16 @@ import assert from "node:assert/strict";
 import ts from "@typescript/typescript6";
 
 import {
-  createAstAnalysisContext,
-  createSemanticAnalysisContext,
-} from "@react-code-sentinel/analyzers";
-
-import {
   getReactComponentInfo,
 } from "../semantic/component-info.js";
 
 import {
   getReactPropsType,
 } from "../semantic/props-type.js";
+
+import {
+  createSemanticContext,
+} from "./helpers/create-semantic-context.js";
 
 test(
   "resolves React component props type",
@@ -31,112 +30,14 @@ test(
       }
     `;
 
-    const rootDirectory =
-      process.cwd();
-
-    const fileName =
-      "semantic-helper-test.tsx";
-
-    const filePath =
-      ts.sys.resolvePath(
-        `${rootDirectory}/${fileName}`,
-      );
-
-    const compilerOptions: ts.CompilerOptions = {
-      target:
-        ts.ScriptTarget.Latest,
-
-      module:
-        ts.ModuleKind.ESNext,
-
-      jsx:
-        ts.JsxEmit.Preserve,
-
-      noEmit: true,
-
-      skipLibCheck: true,
-    };
-
-    const host =
-      ts.createCompilerHost(
-        compilerOptions,
-      );
-
-    const originalReadFile =
-      host.readFile;
-
-    const originalFileExists =
-      host.fileExists;
-
-    host.fileExists = (
-      fileNameToCheck,
-    ) => {
-      if (
-        ts.sys.resolvePath(
-          fileNameToCheck,
-        ) === filePath
-      ) {
-        return true;
-      }
-
-      return originalFileExists(
-        fileNameToCheck,
-      );
-    };
-
-    host.readFile = (
-      fileNameToRead,
-    ) => {
-      if (
-        ts.sys.resolvePath(
-          fileNameToRead,
-        ) === filePath
-      ) {
-        return sourceText;
-      }
-
-      return originalReadFile(
-        fileNameToRead,
-      );
-    };
-
-    const program =
-      ts.createProgram(
-        [filePath],
-        compilerOptions,
-        host,
+    const context =
+      createSemanticContext(
+        sourceText,
+        "semantic-helper-test.tsx",
       );
 
     const sourceFile =
-      program.getSourceFile(filePath);
-
-    assert.ok(sourceFile);
-
-    const astContext =
-      createAstAnalysisContext(
-        {
-          document: {
-            filePath: fileName,
-            sourceText,
-          },
-
-          project: {
-            rootDirectory,
-            files: [fileName],
-          },
-
-          config: {},
-
-          diagnostics: [],
-        },
-        sourceFile,
-      );
-
-    const context =
-      createSemanticAnalysisContext(
-        astContext,
-        program,
-      );
+      context.sourceFile;
 
     let component:
       ReturnType<
@@ -157,7 +58,9 @@ test(
             statement,
           );
 
-        if (component !== undefined) {
+        if (
+          component !== undefined
+        ) {
           break;
         }
       }
@@ -202,112 +105,14 @@ test(
       }
     `;
 
-    const rootDirectory =
-      process.cwd();
-
-    const fileName =
-      "semantic-destructured-props-test.tsx";
-
-    const filePath =
-      ts.sys.resolvePath(
-        `${rootDirectory}/${fileName}`,
-      );
-
-    const compilerOptions: ts.CompilerOptions = {
-      target:
-        ts.ScriptTarget.Latest,
-
-      module:
-        ts.ModuleKind.ESNext,
-
-      jsx:
-        ts.JsxEmit.Preserve,
-
-      noEmit: true,
-
-      skipLibCheck: true,
-    };
-
-    const host =
-      ts.createCompilerHost(
-        compilerOptions,
-      );
-
-    const originalReadFile =
-      host.readFile;
-
-    const originalFileExists =
-      host.fileExists;
-
-    host.fileExists = (
-      fileNameToCheck,
-    ) => {
-      if (
-        ts.sys.resolvePath(
-          fileNameToCheck,
-        ) === filePath
-      ) {
-        return true;
-      }
-
-      return originalFileExists(
-        fileNameToCheck,
-      );
-    };
-
-    host.readFile = (
-      fileNameToRead,
-    ) => {
-      if (
-        ts.sys.resolvePath(
-          fileNameToRead,
-        ) === filePath
-      ) {
-        return sourceText;
-      }
-
-      return originalReadFile(
-        fileNameToRead,
-      );
-    };
-
-    const program =
-      ts.createProgram(
-        [filePath],
-        compilerOptions,
-        host,
+    const context =
+      createSemanticContext(
+        sourceText,
+        "semantic-destructured-props-test.tsx",
       );
 
     const sourceFile =
-      program.getSourceFile(filePath);
-
-    assert.ok(sourceFile);
-
-    const astContext =
-      createAstAnalysisContext(
-        {
-          document: {
-            filePath: fileName,
-            sourceText,
-          },
-
-          project: {
-            rootDirectory,
-            files: [fileName],
-          },
-
-          config: {},
-
-          diagnostics: [],
-        },
-        sourceFile,
-      );
-
-    const context =
-      createSemanticAnalysisContext(
-        astContext,
-        program,
-      );
+      context.sourceFile;
 
     let component:
       ReturnType<
@@ -337,6 +142,7 @@ test(
     }
 
     assert.ok(component);
+
     assert.equal(
       component.name,
       "Card",
