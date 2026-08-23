@@ -5,55 +5,73 @@ import type {
 } from "@react-code-sentinel/core";
 
 import type {
-  AstRule,
+  SemanticRule,
 } from "@react-code-sentinel/analyzers";
 
 import {
-  walkAst,
-} from "@react-code-sentinel/analyzers";
+  getReactComponentInfo,
+  isReactComponentFunction,
+} from "../semantic/component-info.js";
 
 import {
   containsJsx,
 } from "../utils/jsx.js";
 
-import {
-  getFunctionName,
-  isReactComponentFunction,
-} from "../utils/components.js";
-
 function createDiagnostic(
-  filePath: string,
+  context: Parameters<
+    SemanticRule["analyze"]
+  >[0],
   node: ts.Node,
   componentName: string,
 ): Diagnostic {
-  const sourceFile = node.getSourceFile();
+  const sourceFile =
+    context.sourceFile;
 
-  const start = sourceFile.getLineAndCharacterOfPosition(
-    node.getStart(sourceFile),
-  );
+  const start =
+    sourceFile.getLineAndCharacterOfPosition(
+      node.getStart(sourceFile),
+    );
 
-  const end = sourceFile.getLineAndCharacterOfPosition(
-    node.getEnd(),
-  );
+  const end =
+    sourceFile.getLineAndCharacterOfPosition(
+      node.getEnd(),
+    );
 
   return {
-    ruleId: "react/no-unstable-nested-components",
-    severity: "warning",
-    category: "react",
+    ruleId:
+      "react/no-unstable-nested-components",
+
+    severity:
+      "warning",
+
+    category:
+      "react",
+
     message:
       `Component "${componentName}" is defined inside another component. ` +
       "Move it to module scope to avoid recreating its component identity during renders.",
-    filePath,
+
+    filePath:
+      context.document.filePath,
+
     location: {
       start: {
-        line: start.line + 1,
-        column: start.character + 1,
+        line:
+          start.line + 1,
+
+        column:
+          start.character + 1,
       },
+
       end: {
-        line: end.line + 1,
-        column: end.character + 1,
+        line:
+          end.line + 1,
+
+        column:
+          end.character + 1,
       },
     },
+
     suggestion:
       `Move "${componentName}" outside the parent component.`,
   };
@@ -72,67 +90,127 @@ function isFunctionNode(
   );
 }
 
-export const noUnstableNestedComponentsRule: AstRule = {
-  meta: {
-    id: "react/no-unstable-nested-components",
+function findContainingComponent(
+  node: ts.Node,
+) {
+  let current:
+    | ts.Node
+    | undefined =
+    node.parent;
 
-    name: "No unstable nested components",
+  while (
+    current !== undefined
+  ) {
+    if (
+      isReactComponentFunction(
+        current,
+      )
+    ) {
+      const component =
+        getReactComponentInfo(
+          current,
+        );
 
-    description:
-      "Detects React components declared inside other React components.",
+      if (
+        component !== undefined
+      ) {
+        return component;
+      }
+    }
 
-    category: "react",
+    current =
+      current.parent;
+  }
 
-    kind: "ast",
+  return undefined;
+}
 
-    defaultSeverity: "warning",
+export const noUnstableNestedComponentsRule:
+  SemanticRule = {
+    meta: {
+      id:
+        "react/no-unstable-nested-components",
 
-    recommended: true,
+      name:
+        "No unstable nested components",
 
-    fixable: false,
-  },
+      description:
+        "Detects React components declared inside other React components.",
 
-  analyze(context) {
-    const diagnostics: Diagnostic[] = [];
+      category:
+        "react",
 
-    const functionStack: ts.Node[] = [];
+      kind:
+        "semantic",
 
-    walkAst(context.sourceFile, {
-      enter(node) {
-        if (!isFunctionNode(node)) {
+      defaultSeverity:
+        "warning",
+
+      recommended:
+        true,
+
+      fixable:
+        false,
+    },
+
+    analyze(
+      context,
+    ): readonly Diagnostic[] {
+      const diagnostics:
+        Diagnostic[] = [];
+
+      function visit(
+        node: ts.Node,
+      ): void {
+        if (
+          !isFunctionNode(node)
+        ) {
+          ts.forEachChild(
+            node,
+            visit,
+          );
+
           return;
         }
 
-        const name = getFunctionName(node);
-
-        const hasParentFunction =
-          functionStack.length > 0;
+        const component =
+          getReactComponentInfo(
+            node,
+          );
 
         if (
-  hasParentFunction &&
-  name &&
-  isReactComponentFunction(node) &&
-  containsJsx(node)
-) {
-          diagnostics.push(
-            createDiagnostic(
-              context.document.filePath,
+          component !== undefined &&
+          containsJsx(node)
+        ) {
+          const parentComponent =
+            findContainingComponent(
               node,
-              name,
-            ),
-          );
+            );
+
+          if (
+            parentComponent !==
+              undefined
+          ) {
+            diagnostics.push(
+              createDiagnostic(
+                context,
+                node,
+                component.name,
+              ),
+            );
+          }
         }
 
-        functionStack.push(node);
-      },
+        ts.forEachChild(
+          node,
+          visit,
+        );
+      }
 
-      leave(node) {
-        if (isFunctionNode(node)) {
-          functionStack.pop();
-        }
-      },
-    });
+      visit(
+        context.sourceFile,
+      );
 
-    return diagnostics;
-  },
-};
+      return diagnostics;
+    },
+  };
