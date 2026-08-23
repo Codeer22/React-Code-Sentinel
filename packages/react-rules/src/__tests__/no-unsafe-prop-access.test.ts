@@ -160,3 +160,60 @@ test(
     );
   },
 );
+
+test(
+  "reports unsafe destructured props",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          { name }: any,
+        ) {
+          return name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+
+    assert.equal(
+      diagnostics[0]?.ruleId,
+      "react/no-unsafe-prop-access",
+    );
+  },
+);
+
+test(
+  "accepts safely typed destructured props",
+  () => {
+    const context =
+      createSemanticContext(`
+        interface UserCardProps {
+          name: string;
+        }
+
+        function UserCard(
+          { name }: UserCardProps,
+        ) {
+          return name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
