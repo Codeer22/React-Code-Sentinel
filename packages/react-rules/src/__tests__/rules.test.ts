@@ -1406,3 +1406,92 @@ test(
     );
   },
 );
+
+test(
+  "no-missing-key ignores JSX returned from nested function",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          function helper() {
+            return <div>Helper</div>;
+          }
+
+          return users.map((user) => {
+            helper();
+            return <span>{user.name}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key ignores JSX returned from nested arrow function",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            const helper = () => {
+              return <div>Helper</div>;
+            };
+
+            return <span>{user.name}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports both conditional returns",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            if (user.active) {
+              return <div>{user.name}</div>;
+            }
+
+            return <span>{user.email}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-missing-key accepts keyed conditional returns",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            if (user.active) {
+              return <div key={user.id}>{user.name}</div>;
+            }
+
+            return <span key={user.id}>{user.email}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
