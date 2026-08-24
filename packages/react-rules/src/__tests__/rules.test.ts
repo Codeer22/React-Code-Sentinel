@@ -1819,6 +1819,45 @@ test(
 );
 
 test(
+  "no-dangerous-html ignores spread attributes",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ props }) {
+          return <div {...props} />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-dangerous-html still reports explicit dangerous HTML with spread attributes",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ props }) {
+          return (
+            <div
+              {...props}
+              dangerouslySetInnerHTML={{
+                __html: props.html,
+              }}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-dangerous-html reports dangerous HTML on custom components",
   () => {
     const diagnostics = analyzeRule(
