@@ -630,6 +630,25 @@ test(
 );
 
 test(
+  "no-direct-mutation-state reports aliased state property mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            const state = this.state;
+            state.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-direct-mutation-state reports multiple mutations",
   () => {
     const diagnostics = analyzeRule(

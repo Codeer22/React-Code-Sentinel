@@ -149,6 +149,44 @@ function isStateMutationTarget(
     );
   }
 
+  if (ts.isIdentifier(node)) {
+    const symbol =
+      typeChecker.getSymbolAtLocation(node);
+
+    if (symbol === undefined) {
+      return false;
+    }
+
+    const declarations =
+      symbol.declarations ?? [];
+
+    for (const declaration of declarations) {
+      if (
+        !ts.isVariableDeclaration(
+          declaration,
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        declaration.initializer ===
+        undefined
+      ) {
+        continue;
+      }
+
+      if (
+        isStateMutationTarget(
+          declaration.initializer,
+          typeChecker,
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
