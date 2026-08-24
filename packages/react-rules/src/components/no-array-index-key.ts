@@ -78,9 +78,13 @@ function referencesIdentifier(
   typeChecker: ts.TypeChecker,
 ): boolean {
   const targetSymbol =
-    typeChecker.getSymbolAtLocation(identifier);
+    typeChecker.getSymbolAtLocation(
+      identifier,
+    );
 
-  if (targetSymbol === undefined) {
+  if (
+    targetSymbol === undefined
+  ) {
     return false;
   }
 
@@ -90,20 +94,24 @@ function referencesIdentifier(
   function symbolReferencesTarget(
     symbol: ts.Symbol,
   ): boolean {
-    if (symbol === targetSymbol) {
+    if (
+      symbol === targetSymbol
+    ) {
       return true;
     }
 
-    if (visitedSymbols.has(symbol)) {
+    if (
+      visitedSymbols.has(symbol)
+    ) {
       return false;
     }
 
     visitedSymbols.add(symbol);
 
-    const declarations =
-      symbol.declarations ?? [];
-
-    for (const declaration of declarations) {
+    for (
+      const declaration
+        of symbol.declarations ?? []
+    ) {
       if (
         !ts.isVariableDeclaration(
           declaration,
@@ -115,53 +123,208 @@ function referencesIdentifier(
       const initializer =
         declaration.initializer;
 
-      if (initializer === undefined) {
+      if (
+        initializer === undefined
+      ) {
         continue;
       }
 
       if (
-        ts.isIdentifier(initializer)
+        !ts.isIdentifier(
+          initializer,
+        )
       ) {
-        const initializerSymbol =
-          typeChecker.getSymbolAtLocation(
-            initializer,
-          );
+        continue;
+      }
 
-        if (
-          initializerSymbol !==
-            undefined &&
-          symbolReferencesTarget(
-            initializerSymbol,
-          )
-        ) {
-          return true;
-        }
+      const initializerSymbol =
+        typeChecker.getSymbolAtLocation(
+          initializer,
+        );
+
+      if (
+        initializerSymbol !==
+          undefined &&
+        symbolReferencesTarget(
+          initializerSymbol,
+        )
+      ) {
+        return true;
       }
     }
 
     return false;
   }
 
-  let found = false;
+  function expressionReferencesTarget(
+    expression:
+      | ts.Expression
+      | undefined,
+  ): boolean {
+    if (
+      expression === undefined
+    ) {
+      return false;
+    }
 
-  function visit(current: ts.Node): void {
-    if (found) {
+    if (
+      !ts.isIdentifier(expression)
+    ) {
+      return false;
+    }
+
+    const symbol =
+      typeChecker.getSymbolAtLocation(
+        expression,
+      );
+
+    if (
+      symbol === undefined
+    ) {
+      return false;
+    }
+
+    return symbolReferencesTarget(
+      symbol,
+    );
+  }
+
+  /*
+   * Direct references anywhere inside the
+   * key expression.
+   *
+   * Examples:
+   *
+   * key={index}
+   * key={index.toString()}
+   * key={`item-${index}`}
+   * key={condition ? index : item.id}
+   * key={index + "-item"}
+   */
+  let directReferenceFound =
+    false;
+
+  function findDirectReference(
+    current: ts.Node,
+  ): void {
+    if (
+      directReferenceFound
+    ) {
       return;
     }
 
     if (
-      current !== identifier &&
       ts.isIdentifier(current)
     ) {
-      const currentSymbol =
+      const symbol =
         typeChecker.getSymbolAtLocation(
           current,
         );
 
       if (
-        currentSymbol !== undefined &&
-        symbolReferencesTarget(
-          currentSymbol,
+        symbol !== undefined &&
+        symbol === targetSymbol
+      ) {
+        directReferenceFound = true;
+        return;
+      }
+    }
+
+    ts.forEachChild(
+      current,
+      findDirectReference,
+    );
+  }
+
+  findDirectReference(node);
+
+  if (
+    directReferenceFound
+  ) {
+    return true;
+  }
+
+  /*
+   * Find the containing function.
+   *
+   * This is required for aliases such as:
+   *
+   * let itemIndex;
+   *
+   * itemIndex = index;
+   *
+   * return <div key={itemIndex} />;
+   */
+  let scope:
+    | ts.Node
+    | undefined =
+    node.parent;
+
+  while (
+    scope !== undefined &&
+    !ts.isFunctionLike(scope) &&
+    !ts.isSourceFile(scope)
+  ) {
+    scope = scope.parent;
+  }
+
+  if (
+    scope === undefined
+  ) {
+    return false;
+  }
+
+  const nodeSymbol =
+    ts.isIdentifier(node)
+      ? typeChecker.getSymbolAtLocation(
+          node,
+        )
+      : undefined;
+
+  if (
+    nodeSymbol === undefined
+  ) {
+    return false;
+  }
+
+  let found = false;
+
+  function visit(
+    current: ts.Node,
+  ): void {
+    if (found) {
+      return;
+    }
+
+    /*
+     * Variable alias:
+     *
+     * const itemIndex = index;
+     *
+     * const anotherIndex = itemIndex;
+     */
+    if (
+      ts.isVariableDeclaration(
+        current,
+      ) &&
+      ts.isIdentifier(
+        current.name,
+      ) &&
+      current.initializer !==
+        undefined
+    ) {
+      const declaredSymbol =
+        typeChecker.getSymbolAtLocation(
+          current.name,
+        );
+
+      if (
+        declaredSymbol !==
+          undefined &&
+        declaredSymbol ===
+          nodeSymbol &&
+        expressionReferencesTarget(
+          current.initializer,
         )
       ) {
         found = true;
@@ -169,10 +332,49 @@ function referencesIdentifier(
       }
     }
 
-    ts.forEachChild(current, visit);
+    /*
+     * Assignment alias:
+     *
+     * let itemIndex;
+     *
+     * itemIndex = index;
+     */
+    if (
+      ts.isBinaryExpression(
+        current,
+      ) &&
+      current.operatorToken.kind ===
+        ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(
+        current.left,
+      )
+    ) {
+      const leftSymbol =
+        typeChecker.getSymbolAtLocation(
+          current.left,
+        );
+
+      if (
+        leftSymbol !==
+          undefined &&
+        leftSymbol ===
+          nodeSymbol &&
+        expressionReferencesTarget(
+          current.right,
+        )
+      ) {
+        found = true;
+        return;
+      }
+    }
+
+    ts.forEachChild(
+      current,
+      visit,
+    );
   }
 
-  visit(node);
+  visit(scope);
 
   return found;
 }

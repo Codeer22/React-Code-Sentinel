@@ -2809,3 +2809,28 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-array-index-key reports assigned index alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            let itemIndex;
+
+            itemIndex = index;
+
+            return (
+              <div key={itemIndex}>
+                {user.name}
+              </div>
+            );
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
