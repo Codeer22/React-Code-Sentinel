@@ -2535,3 +2535,29 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-direct-mutation-props reports aliased prop mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        export function UserCard(
+          props: {
+            user: {
+              name: string;
+            };
+          },
+        ) {
+          const user = props.user;
+
+          user.name = "Bob";
+
+          return <div>{user.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

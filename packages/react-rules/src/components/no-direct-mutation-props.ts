@@ -279,11 +279,54 @@ function isPropsMutationTarget(
     return false;
   }
 
-  return isPropsBinding(
-    node,
-    propsParameter,
-    checker,
-  );
+  if (
+    isPropsBinding(
+      node,
+      propsParameter,
+      checker,
+    )
+  ) {
+    return true;
+  }
+
+  const symbol =
+    checker.getSymbolAtLocation(node);
+
+  if (symbol === undefined) {
+    return false;
+  }
+
+  const declarations =
+    symbol.declarations ?? [];
+
+  for (const declaration of declarations) {
+    if (
+      !ts.isVariableDeclaration(
+        declaration,
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      declaration.initializer ===
+      undefined
+    ) {
+      continue;
+    }
+
+    if (
+      isPropsMutationTarget(
+        declaration.initializer,
+        propsParameter,
+        checker,
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function analyzeMutation(
