@@ -5,22 +5,17 @@ import type {
 } from "@react-code-sentinel/core";
 
 import type {
-  AstRule,
+  SemanticRule,
 } from "@react-code-sentinel/analyzers";
-
-import {
-  walkAst,
-} from "@react-code-sentinel/analyzers";
-
-import {
-  isMapCall,
-  getMapCallback,
-  getReturnedJsx,
-} from "../utils/maps.js";
 
 import {
   getKeyAttribute,
 } from "../utils/jsx.js";
+
+import {
+  isMapCall,
+  getMapCallback,
+} from "../utils/maps.js";
 
 function createDiagnostic(
   filePath: string,
@@ -80,7 +75,15 @@ function getIndexParameter(
 function referencesIdentifier(
   node: ts.Node,
   identifier: ts.Identifier,
+  typeChecker: ts.TypeChecker,
 ): boolean {
+  const targetSymbol =
+    typeChecker.getSymbolAtLocation(identifier);
+
+  if (targetSymbol === undefined) {
+    return false;
+  }
+
   let found = false;
 
   function visit(current: ts.Node): void {
@@ -90,11 +93,15 @@ function referencesIdentifier(
 
     if (
       current !== identifier &&
-      ts.isIdentifier(current) &&
-      current.text === identifier.text
+      ts.isIdentifier(current)
     ) {
-      found = true;
-      return;
+      const currentSymbol =
+        typeChecker.getSymbolAtLocation(current);
+
+      if (currentSymbol === targetSymbol) {
+        found = true;
+        return;
+      }
     }
 
     ts.forEachChild(current, visit);
@@ -105,36 +112,245 @@ function referencesIdentifier(
   return found;
 }
 
-export const noArrayIndexKeyRule: AstRule = {
-  meta: {
-    id: "react/no-array-index-key",
+function getReturnedJsxIncludingNestedClosures(
+  callback:
+    | ts.ArrowFunction
+    | ts.FunctionExpression,
+): readonly (
+  | ts.JsxElement
+  | ts.JsxSelfClosingElement
+)[] {
+  const results: (
+    | ts.JsxElement
+    | ts.JsxSelfClosingElement
+  )[] = [];
 
-    name: "No array index key",
+  const visitedFunctions = new Set<ts.Node>();
 
-    description:
-      "Detects React keys that use the array index from a map callback.",
+  function addExpression(
+    expression:
+      | ts.Expression
+      | undefined,
+  ): void {
+    if (expression === undefined) {
+      return;
+    }
 
-    category: "react",
+    if (
+      ts.isJsxElement(expression) ||
+      ts.isJsxSelfClosingElement(expression)
+    ) {
+      results.push(expression);
+      return;
+    }
 
-    kind: "ast",
+    if (
+      ts.isParenthesizedExpression(expression)
+    ) {
+      addExpression(
+        expression.expression,
+      );
+    }
+  }
 
-    defaultSeverity: "warning",
+  function visitFunction(
+    functionNode:
+      | ts.ArrowFunction
+      | ts.FunctionExpression,
+  ): void {
+    if (visitedFunctions.has(functionNode)) {
+      return;
+    }
 
-    recommended: true,
+    visitedFunctions.add(functionNode);
 
-    fixable: false,
-  },
+    if (
+      ts.isArrowFunction(functionNode) &&
+      !ts.isBlock(functionNode.body)
+    ) {
+      addExpression(functionNode.body);
+      return;
+    }
 
-  analyze(context) {
-    const diagnostics: Diagnostic[] = [];
+    if (!ts.isBlock(functionNode.body)) {
+      return;
+    }
 
-    walkAst(context.sourceFile, {
-      enter(node) {
+    for (
+      const statement of
+      functionNode.body.statements
+    ) {
+      visitStatement(statement);
+    }
+  }
+
+  function visitStatement(
+    statement: ts.Statement,
+  ): void {
+    if (ts.isReturnStatement(statement)) {
+      addExpression(statement.expression);
+
+      if (
+        statement.expression !==
+        undefined
+      ) {
+        visitExpression(
+          statement.expression,
+        );
+      }
+
+      return;
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (
+        const declaration of
+        statement.declarationList.declarations
+      ) {
+        if (
+          declaration.initializer !==
+          undefined
+        ) {
+          visitExpression(
+            declaration.initializer,
+          );
+        }
+      }
+
+      return;
+    }
+
+    if (ts.isBlock(statement)) {
+      for (
+        const child of
+        statement.statements
+      ) {
+        visitStatement(child);
+      }
+
+      return;
+    }
+
+    if (ts.isIfStatement(statement)) {
+      visitStatement(
+        statement.thenStatement,
+      );
+
+      if (
+        statement.elseStatement !==
+        undefined
+      ) {
+        visitStatement(
+          statement.elseStatement,
+        );
+      }
+
+      return;
+    }
+
+    if (ts.isTryStatement(statement)) {
+      visitStatement(
+        statement.tryBlock,
+      );
+
+      if (
+        statement.catchClause !==
+        undefined
+      ) {
+        visitStatement(
+          statement.catchClause.block,
+        );
+      }
+
+      if (
+        statement.finallyBlock !==
+        undefined
+      ) {
+        visitStatement(
+          statement.finallyBlock,
+        );
+      }
+
+      return;
+    }
+
+    if (ts.isSwitchStatement(statement)) {
+      for (
+        const clause of
+        statement.caseBlock.clauses
+      ) {
+        for (
+          const child of
+          clause.statements
+        ) {
+          visitStatement(child);
+        }
+      }
+    }
+  }
+
+  function visitExpression(
+    expression: ts.Expression,
+  ): void {
+    if (
+      ts.isArrowFunction(expression) ||
+      ts.isFunctionExpression(expression)
+    ) {
+      visitFunction(expression);
+      return;
+    }
+
+    ts.forEachChild(
+      expression,
+      (child) => {
+        if (ts.isExpression(child)) {
+          visitExpression(child);
+        }
+      },
+    );
+  }
+
+  visitFunction(callback);
+
+  return results;
+}
+
+export const noArrayIndexKeyRule:
+  SemanticRule = {
+    meta: {
+      id: "react/no-array-index-key",
+
+      name: "No array index key",
+
+      description:
+        "Detects React keys that use the array index from a map callback.",
+
+      category: "react",
+
+      kind: "semantic",
+
+      defaultSeverity: "warning",
+
+      recommended: true,
+
+      fixable: false,
+    },
+
+    analyze(context) {
+      const diagnostics: Diagnostic[] = [];
+
+      function visit(node: ts.Node): void {
         if (!isMapCall(node)) {
+          ts.forEachChild(
+            node,
+            visit,
+          );
+
           return;
         }
 
-        const callback = getMapCallback(node);
+        const callback =
+          getMapCallback(node);
 
         if (callback === undefined) {
           return;
@@ -147,7 +363,12 @@ export const noArrayIndexKeyRule: AstRule = {
           return;
         }
 
-        for (const jsxNode of getReturnedJsx(callback)) {
+        for (
+          const jsxNode of
+          getReturnedJsxIncludingNestedClosures(
+            callback,
+          )
+        ) {
           const keyAttribute =
             getKeyAttribute(jsxNode);
 
@@ -155,7 +376,10 @@ export const noArrayIndexKeyRule: AstRule = {
             continue;
           }
 
-          if (keyAttribute.initializer === undefined) {
+          if (
+            keyAttribute.initializer ===
+            undefined
+          ) {
             continue;
           }
 
@@ -178,6 +402,7 @@ export const noArrayIndexKeyRule: AstRule = {
             referencesIdentifier(
               expression,
               indexParameter,
+              context.typeChecker,
             )
           ) {
             diagnostics.push(
@@ -188,9 +413,12 @@ export const noArrayIndexKeyRule: AstRule = {
             );
           }
         }
-      },
-    });
 
-    return diagnostics;
-  },
-};
+        return;
+      }
+
+      visit(context.sourceFile);
+
+      return diagnostics;
+    },
+  };

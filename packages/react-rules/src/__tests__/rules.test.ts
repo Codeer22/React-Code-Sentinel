@@ -1899,3 +1899,179 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-array-index-key ignores shadowed nested function index",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            function helper(index) {
+              return <div key={index}>{index}</div>;
+            }
+
+            helper("stable");
+
+            return <span key={index}>{user.name}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key ignores shadowed nested arrow index",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            const helper = (index) => (
+              <div key={index}>{index}</div>
+            );
+
+            helper("stable");
+
+            return <span key={index}>{user.name}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key reports callback index in template expression",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => (
+            <div key={\`item-\${index}\`}>
+              {user.name}
+            </div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key reports callback index in member access",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => (
+            <div key={users[index].id}>
+              {user.name}
+            </div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+
+test(
+  "no-array-index-key ignores shadowed block index in key expression",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            {
+              const index = "stable";
+              console.log(index);
+            }
+
+            return <span key={index}>{user.name}</span>;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key reports captured callback index",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            const render = () => (
+              <span key={index}>{user.name}</span>
+            );
+
+            return render();
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key ignores shadowed callback index in nested closure",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            const render = (index) => (
+              <span key={index}>{user.name}</span>
+            );
+
+            return render(index);
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-array-index-key reports callback index in conditional key",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => (
+            <span key={user.active ? index : user.id}>
+              {user.name}
+            </span>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
