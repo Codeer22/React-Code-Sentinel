@@ -301,28 +301,52 @@ function isPropsMutationTarget(
 
   for (const declaration of declarations) {
     if (
-      !ts.isVariableDeclaration(
+      ts.isVariableDeclaration(
         declaration,
       )
     ) {
+      if (
+        declaration.initializer !==
+        undefined &&
+        isPropsMutationTarget(
+          declaration.initializer,
+          propsParameter,
+          checker,
+        )
+      ) {
+        return true;
+      }
+
       continue;
     }
 
     if (
-      declaration.initializer ===
-      undefined
-    ) {
-      continue;
-    }
-
-    if (
-      isPropsMutationTarget(
-        declaration.initializer,
-        propsParameter,
-        checker,
+      ts.isBindingElement(
+        declaration,
       )
     ) {
-      return true;
+      const variableDeclaration =
+        declaration.parent.parent;
+
+      if (
+        !ts.isVariableDeclaration(
+          variableDeclaration,
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        variableDeclaration.initializer !==
+        undefined &&
+        isPropsMutationTarget(
+          variableDeclaration.initializer,
+          propsParameter,
+          checker,
+        )
+      ) {
+        return true;
+      }
     }
   }
 
