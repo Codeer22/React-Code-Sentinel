@@ -174,6 +174,7 @@ function getUnsafePropName(
     return getDestructuredPropName(
       node,
       propsParameter,
+      typeChecker,
     );
   }
 
@@ -205,6 +206,57 @@ function getUnsafePropType(
       typeChecker,
     )
   ) {
+    /*
+     * Direct parameter destructuring:
+     *
+     * function UserCard({ name }: any) {
+     *   return <div>{name}</div>;
+     * }
+     */
+    if (
+      ts.isObjectBindingPattern(
+        propsParameter.name,
+      )
+    ) {
+      const propsType =
+        typeChecker.getTypeAtLocation(
+          propsParameter,
+        );
+
+      const propertyName =
+        getDestructuredPropName(
+          node,
+          propsParameter,
+          typeChecker,
+        );
+
+      if (
+        propertyName !== undefined
+      ) {
+        const property =
+          propsType.getProperty(
+            propertyName,
+          );
+
+        if (
+          property !== undefined
+        ) {
+          return typeChecker.getTypeOfSymbolAtLocation(
+            property,
+            node,
+          );
+        }
+      }
+    }
+
+    /*
+     * Local destructuring:
+     *
+     * function UserCard(props: any) {
+     *   const { name } = props;
+     *   return <div>{name}</div>;
+     * }
+     */
     const symbol =
       typeChecker.getSymbolAtLocation(
         node,
@@ -213,10 +265,101 @@ function getUnsafePropType(
     if (
       symbol !== undefined
     ) {
-      return typeChecker.getTypeOfSymbolAtLocation(
-        symbol,
-        node,
-      );
+      const symbolType =
+        typeChecker.getTypeOfSymbolAtLocation(
+          symbol,
+          node,
+        );
+
+      if (
+        (symbolType.flags &
+          ts.TypeFlags.Any) !==
+          0 ||
+        (symbolType.flags &
+          ts.TypeFlags.Unknown) !==
+          0
+      ) {
+        return symbolType;
+      }
+
+      for (
+        const declaration
+          of symbol.declarations ?? []
+      ) {
+        if (
+          !ts.isBindingElement(
+            declaration,
+          )
+        ) {
+          continue;
+        }
+
+        const bindingPattern =
+          declaration.parent;
+
+        if (
+          !ts.isObjectBindingPattern(
+            bindingPattern,
+          )
+        ) {
+          continue;
+        }
+
+        const variableDeclaration =
+          bindingPattern.parent;
+
+        if (
+          !ts.isVariableDeclaration(
+            variableDeclaration,
+          )
+        ) {
+          continue;
+        }
+
+        const initializer =
+          variableDeclaration.initializer;
+
+        if (
+          initializer === undefined
+        ) {
+          continue;
+        }
+
+        const initializerType =
+          typeChecker.getTypeAtLocation(
+            initializer,
+          );
+
+        const propertyName =
+          declaration.propertyName !==
+            undefined
+            ? declaration.propertyName
+            : declaration.name;
+
+        if (
+          !ts.isIdentifier(
+            propertyName,
+          )
+        ) {
+          continue;
+        }
+
+        const property =
+          initializerType.getProperty(
+            propertyName.text,
+          );
+
+        if (
+          property !== undefined
+        ) {
+          return typeChecker.getTypeOfSymbolAtLocation(
+            property,
+            node,
+          );
+        }
+
+        return initializerType;
+      }
     }
   }
 
@@ -240,10 +383,14 @@ function isUnsafeType(
 
 function isDirectPropsAccess(
   node: ts.PropertyAccessExpression,
-  propsParameter: ts.ParameterDeclaration,
-  typeChecker: ts.TypeChecker,
+  propsParameter:
+    ts.ParameterDeclaration,
+  typeChecker:
+    ts.TypeChecker,
 ): boolean {
-  if (!ts.isIdentifier(node.expression)) {
+  if (
+    !ts.isIdentifier(node.expression)
+  ) {
     return false;
   }
 
@@ -252,7 +399,9 @@ function isDirectPropsAccess(
       propsParameter.name,
     );
 
-  if (targetSymbol === undefined) {
+  if (
+    targetSymbol === undefined
+  ) {
     return false;
   }
 
@@ -262,11 +411,15 @@ function isDirectPropsAccess(
   function symbolReferencesProps(
     symbol: ts.Symbol,
   ): boolean {
-    if (symbol === targetSymbol) {
+    if (
+      symbol === targetSymbol
+    ) {
       return true;
     }
 
-    if (visitedSymbols.has(symbol)) {
+    if (
+      visitedSymbols.has(symbol)
+    ) {
       return false;
     }
 
@@ -325,7 +478,9 @@ function isDirectPropsAccess(
       node.expression,
     );
 
-  if (accessSymbol === undefined) {
+  if (
+    accessSymbol === undefined
+  ) {
     return false;
   }
 
@@ -341,46 +496,154 @@ function isDestructuredPropAccess(
   typeChecker:
     ts.TypeChecker,
 ): boolean {
+  const nodeSymbol =
+    typeChecker.getSymbolAtLocation(
+      node,
+    );
+
   if (
-    !ts.isObjectBindingPattern(
+    nodeSymbol === undefined
+  ) {
+    return false;
+  }
+
+  /*
+   * Case 1:
+   *
+   * function UserCard({ name }: any) {
+   *   return <div>{name}</div>;
+   * }
+   */
+  if (
+    ts.isObjectBindingPattern(
+      propsParameter.name,
+    )
+  ) {
+    for (
+      const element
+        of propsParameter.name.elements
+    ) {
+      if (
+        !ts.isBindingElement(
+          element,
+        )
+      ) {
+        continue;
+      }
+
+      const bindingSymbol =
+        typeChecker.getSymbolAtLocation(
+          element.name,
+        );
+
+      if (
+        bindingSymbol === nodeSymbol
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /*
+   * Case 2:
+   *
+   * function UserCard(props: any) {
+   *   const { name } = props;
+   *   return <div>{name}</div>;
+   * }
+   */
+  if (
+    !ts.isIdentifier(
       propsParameter.name,
     )
   ) {
     return false;
   }
 
-  const symbol =
+  const propsSymbol =
     typeChecker.getSymbolAtLocation(
-      node,
+      propsParameter.name,
     );
 
   if (
-    symbol === undefined
+    propsSymbol === undefined
   ) {
     return false;
   }
 
   for (
-    const element
-      of propsParameter.name.elements
+    const declaration
+      of nodeSymbol.declarations ?? []
   ) {
     if (
       !ts.isBindingElement(
-        element,
+        declaration,
       )
     ) {
       continue;
     }
 
-    const bindingSymbol =
+    const bindingPattern =
+      declaration.parent;
+
+    if (
+      !ts.isObjectBindingPattern(
+        bindingPattern,
+      )
+    ) {
+      continue;
+    }
+
+    const variableDeclaration =
+      bindingPattern.parent;
+
+    if (
+      !ts.isVariableDeclaration(
+        variableDeclaration,
+      )
+    ) {
+      continue;
+    }
+
+    const initializer =
+      variableDeclaration.initializer;
+
+    if (
+      initializer === undefined ||
+      !ts.isIdentifier(
+        initializer,
+      )
+    ) {
+      continue;
+    }
+
+    const initializerSymbol =
       typeChecker.getSymbolAtLocation(
-        element.name,
+        initializer,
       );
 
     if (
-      bindingSymbol === symbol
+      initializerSymbol === propsSymbol
     ) {
       return true;
+    }
+
+    if (
+      initializerSymbol !== undefined
+    ) {
+      for (
+        const initializerDeclaration
+          of initializerSymbol.declarations ?? []
+      ) {
+        if (
+          initializerDeclaration ===
+          propsParameter
+        ) {
+          return true;
+        }
+      }
     }
   }
 
@@ -391,44 +654,181 @@ function getDestructuredPropName(
   node: ts.Identifier,
   propsParameter:
     ts.ParameterDeclaration,
+  typeChecker:
+    ts.TypeChecker,
 ): string | undefined {
+  /*
+   * Case 1:
+   *
+   * function UserCard({ name }: any) {
+   *   return <div>{name}</div>;
+   * }
+   */
   if (
-    !ts.isObjectBindingPattern(
+    ts.isObjectBindingPattern(
       propsParameter.name,
     )
+  ) {
+    for (
+      const element
+        of propsParameter.name.elements
+    ) {
+      if (
+        !ts.isBindingElement(
+          element,
+        )
+      ) {
+        continue;
+      }
+
+      /*
+       * Only match the actual binding
+       * declaration. Usage references are
+       * separate AST nodes.
+       */
+      if (
+        element.name === node
+      ) {
+        const propertyName =
+          element.propertyName;
+
+        if (
+          propertyName !== undefined &&
+          ts.isIdentifier(
+            propertyName,
+          )
+        ) {
+          return propertyName.text;
+        }
+
+        return node.text;
+      }
+    }
+
+    return undefined;
+  }
+
+  /*
+   * Case 2:
+   *
+   * function UserCard(props: any) {
+   *   const { name: alias } = props;
+   *   return <div>{alias}</div>;
+   * }
+   *
+   * Resolve the usage through the symbol,
+   * but ignore the declaration itself.
+   */
+  const symbol =
+    typeChecker.getSymbolAtLocation(
+      node,
+    );
+
+  if (
+    symbol === undefined
   ) {
     return undefined;
   }
 
   for (
-    const element
-      of propsParameter.name.elements
+    const declaration
+      of symbol.declarations ?? []
   ) {
     if (
       !ts.isBindingElement(
-        element,
+        declaration,
       )
     ) {
       continue;
     }
 
+    /*
+     * Do not report the BindingElement
+     * declaration itself.
+     */
     if (
-      element.name ===
-      node
+      declaration.name === node
     ) {
-      const propertyName =
-        element.propertyName;
+      return undefined;
+    }
 
-      if (
-        propertyName !== undefined &&
-        ts.isIdentifier(
-          propertyName,
-        )
-      ) {
-        return propertyName.text;
-      }
+    const bindingPattern =
+      declaration.parent;
 
-      return node.text;
+    if (
+      !ts.isObjectBindingPattern(
+        bindingPattern,
+      )
+    ) {
+      continue;
+    }
+
+    const variableDeclaration =
+      bindingPattern.parent;
+
+    if (
+      !ts.isVariableDeclaration(
+        variableDeclaration,
+      )
+    ) {
+      continue;
+    }
+
+    const initializer =
+      variableDeclaration.initializer;
+
+    if (
+      initializer === undefined ||
+      !ts.isIdentifier(
+        initializer,
+      )
+    ) {
+      continue;
+    }
+
+    const initializerSymbol =
+      typeChecker.getSymbolAtLocation(
+        initializer,
+      );
+
+    if (
+      initializerSymbol === undefined
+    ) {
+      continue;
+    }
+
+    if (
+      !ts.isIdentifier(
+        propsParameter.name,
+      )
+    ) {
+      continue;
+    }
+
+    const propsSymbol =
+      typeChecker.getSymbolAtLocation(
+        propsParameter.name,
+      );
+
+    if (
+      propsSymbol === undefined ||
+      initializerSymbol !== propsSymbol
+    ) {
+      continue;
+    }
+
+    const propertyName =
+      declaration.propertyName !==
+        undefined
+        ? declaration.propertyName
+        : declaration.name;
+
+    if (
+      ts.isIdentifier(
+        propertyName,
+      )
+    ) {
+      return propertyName.text;
     }
   }
 
