@@ -2704,3 +2704,23 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-direct-mutation-state reports chained aliased state",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            const state = this.state;
+            const current = state;
+
+            current.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
