@@ -1495,3 +1495,128 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-unstable-nested-components ignores nested lowercase helper",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function helper() {
+            return <div>Hello</div>;
+          }
+
+          return helper();
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unstable-nested-components reports nested component arrow function",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          const Child = () => {
+            return <div>Hello</div>;
+          };
+
+          return <Child />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unstable-nested-components ignores nested function without JSX",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function Child() {
+            return "Hello";
+          }
+
+          return <div>{Child()}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unstable-nested-components reports deeply nested component",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function Middle() {
+            function Child() {
+              return <div>Hello</div>;
+            }
+
+            return <Child />;
+          }
+
+          return <Middle />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+
+test(
+  "no-unstable-nested-components reports uppercase nested function used as component",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function RenderThing() {
+            return <div>Hello</div>;
+          }
+
+          return <RenderThing />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unstable-nested-components currently treats uppercase JSX-returning helper as component",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function RenderThing() {
+            return <div>Hello</div>;
+          }
+
+          return RenderThing();
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
