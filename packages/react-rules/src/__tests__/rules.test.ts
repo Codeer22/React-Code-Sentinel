@@ -2704,6 +2704,7 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
 test(
   "no-direct-mutation-state reports chained aliased state",
   () => {
@@ -2724,6 +2725,7 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
 test(
   "no-useless-fragment reports conditional JSX expression as one child",
   () => {
@@ -2745,6 +2747,7 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
 test(
   "no-missing-key reports JSX assigned to local variable",
   () => {
@@ -2768,6 +2771,7 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
 test(
   "no-implicit-any-props reports untyped props parameter",
   () => {
@@ -2778,6 +2782,26 @@ test(
           props,
         ) {
           return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unsafe-prop-access reports destructured alias from props",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          const { name } = props;
+
+          return <div>{name}</div>;
         }
       `,
     );
