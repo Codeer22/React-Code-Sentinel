@@ -2638,3 +2638,22 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-missing-key reports JSX returned through local variable",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            const element = <div>{user.name}</div>;
+
+            return element;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

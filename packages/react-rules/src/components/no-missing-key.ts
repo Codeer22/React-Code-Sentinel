@@ -95,7 +95,9 @@ export const noMissingKeyRule: AstRule = {
           return;
         }
 
-        for (const jsxNode of getReturnedJsx(callback)) {
+        for (
+          const jsxNode of getReturnedJsx(callback)
+        ) {
           if (ts.isJsxFragment(jsxNode)) {
             diagnostics.push(
               createDiagnostic(

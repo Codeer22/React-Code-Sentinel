@@ -58,6 +58,15 @@ export function getReturnedJsx(
     | ts.JsxFragment
   )[] = [];
 
+  const localVariables =
+    new Map<
+      string,
+      ts.Expression | undefined
+    >();
+
+  const resolvingNames =
+    new Set<string>();
+
   function addExpression(
     expression:
       | ts.Expression
@@ -88,6 +97,35 @@ export function getReturnedJsx(
       addExpression(
         expression.expression,
       );
+
+      return;
+    }
+
+    if (
+      ts.isIdentifier(expression)
+    ) {
+      const name =
+        expression.text;
+
+      if (
+        resolvingNames.has(name)
+      ) {
+        return;
+      }
+
+      if (
+        !localVariables.has(name)
+      ) {
+        return;
+      }
+
+      resolvingNames.add(name);
+
+      addExpression(
+        localVariables.get(name),
+      );
+
+      resolvingNames.delete(name);
     }
   }
 
@@ -111,8 +149,33 @@ export function getReturnedJsx(
     statement: ts.Statement,
   ): void {
     if (
+      ts.isVariableStatement(statement)
+    ) {
+      for (
+        const declaration
+        of statement.declarationList
+          .declarations
+      ) {
+        if (
+          ts.isIdentifier(
+            declaration.name,
+          )
+        ) {
+          localVariables.set(
+            declaration.name.text,
+            declaration.initializer,
+          );
+        }
+      }
+
+      return;
+    }
+
+    if (
       ts.isReturnStatement(statement)
     ) {
+      resolvingNames.clear();
+
       addExpression(
         statement.expression,
       );
