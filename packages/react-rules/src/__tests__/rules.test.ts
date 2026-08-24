@@ -1744,3 +1744,158 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-useless-fragment reports one child surrounded by whitespace",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+
+              <div>Hello</div>
+
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment reports a single JSX expression child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App({ value }) {
+          return <>{value}</>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment allows an empty fragment",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return <></>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-useless-fragment allows text and an element",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              Hello
+              <span>World</span>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-useless-fragment allows multiple JSX expressions",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App({ first, second }) {
+          return (
+            <>
+              {first}
+              {second}
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-useless-fragment reports nested fragment with one renderable child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              <>
+                <div>Hello</div>
+              </>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-useless-fragment treats a single null expression as one child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return <>{null}</>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment allows two different child types",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App({ value }) {
+          return (
+            <>
+              {value}
+              <span>Hello</span>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
