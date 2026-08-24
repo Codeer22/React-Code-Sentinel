@@ -1062,3 +1062,99 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+
+test(
+  "no-array-index-key ignores shadowed index binding",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            function render(index) {
+              return <div key={index}>{user.name}</div>;
+            }
+
+            return render(index);
+          });
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
+
+test(
+  "no-array-index-key reports index used in computed key",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => (
+            <div key={user.id + index}>
+              {user.name}
+            </div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-array-index-key reports index used inside expression",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, position) => (
+            <div key={String(position)}>
+              {user.name}
+            </div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-array-index-key ignores same-name outer binding",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        const index = "stable";
+
+        export function Users({ users }) {
+          return users.map((user) => (
+            <div key={index}>
+              {user.name}
+            </div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
