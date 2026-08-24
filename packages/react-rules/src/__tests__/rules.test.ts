@@ -1718,6 +1718,30 @@ test(
 );
 
 test(
+  "no-unstable-nested-components reports component nested through helper",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function helper() {
+            function Child() {
+              return <div>Hello</div>;
+            }
+
+            return <Child />;
+          }
+
+          return <div>{helper()}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-unstable-nested-components reports deeply nested component",
   () => {
     const diagnostics = analyzeRule(
