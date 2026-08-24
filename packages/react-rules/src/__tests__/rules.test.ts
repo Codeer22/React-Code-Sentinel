@@ -2561,3 +2561,30 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-direct-mutation-props reports chained aliased prop mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        export function UserCard(
+          props: {
+            user: {
+              name: string;
+            };
+          },
+        ) {
+          const user = props.user;
+          const account = user;
+
+          account.name = "Bob";
+
+          return <div>{account.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
