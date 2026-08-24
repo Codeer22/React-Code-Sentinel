@@ -1158,3 +1158,142 @@ test(
     );
   },
 );
+
+test(
+  "no-direct-mutation-props ignores shadowed nested prop binding",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          function update(props) {
+            props.name = "Local";
+          }
+
+          props.name = "Actual prop mutation";
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-props ignores same-name outer binding",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        const props = {
+          name: "stable",
+        };
+
+        function UserCard() {
+          props.name = "Not a React prop";
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-props ignores shadowed destructured prop",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard({ user }) {
+          function update(user) {
+            user.name = "Local";
+          }
+
+          user.name = "Actual prop mutation";
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-props resolves destructured prop binding",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard({ user }) {
+          function update(value) {
+            value.name = "Not a prop";
+          }
+
+          user.name = "Actual prop mutation";
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+
+test(
+  "no-direct-mutation-props reports captured props in nested function",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          function update() {
+            props.name = "mutated";
+          }
+
+          update();
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-props reports captured destructured prop in nested function",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard({ user }) {
+          function update() {
+            user.name = "mutated";
+          }
+
+          update();
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
