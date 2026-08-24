@@ -84,6 +84,64 @@ function referencesIdentifier(
     return false;
   }
 
+  const visitedSymbols =
+    new Set<ts.Symbol>();
+
+  function symbolReferencesTarget(
+    symbol: ts.Symbol,
+  ): boolean {
+    if (symbol === targetSymbol) {
+      return true;
+    }
+
+    if (visitedSymbols.has(symbol)) {
+      return false;
+    }
+
+    visitedSymbols.add(symbol);
+
+    const declarations =
+      symbol.declarations ?? [];
+
+    for (const declaration of declarations) {
+      if (
+        !ts.isVariableDeclaration(
+          declaration,
+        )
+      ) {
+        continue;
+      }
+
+      const initializer =
+        declaration.initializer;
+
+      if (initializer === undefined) {
+        continue;
+      }
+
+      if (
+        ts.isIdentifier(initializer)
+      ) {
+        const initializerSymbol =
+          typeChecker.getSymbolAtLocation(
+            initializer,
+          );
+
+        if (
+          initializerSymbol !==
+            undefined &&
+          symbolReferencesTarget(
+            initializerSymbol,
+          )
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   let found = false;
 
   function visit(current: ts.Node): void {
@@ -96,9 +154,16 @@ function referencesIdentifier(
       ts.isIdentifier(current)
     ) {
       const currentSymbol =
-        typeChecker.getSymbolAtLocation(current);
+        typeChecker.getSymbolAtLocation(
+          current,
+        );
 
-      if (currentSymbol === targetSymbol) {
+      if (
+        currentSymbol !== undefined &&
+        symbolReferencesTarget(
+          currentSymbol,
+        )
+      ) {
         found = true;
         return;
       }

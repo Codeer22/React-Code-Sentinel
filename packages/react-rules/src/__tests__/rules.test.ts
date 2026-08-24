@@ -1296,6 +1296,30 @@ test(
 );
 
 test(
+  "no-array-index-key reports aliased callback index",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user, index) => {
+            const itemIndex = index;
+
+            return (
+              <div key={itemIndex}>
+                {user.name}
+              </div>
+            );
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-array-index-key ignores same-name outer binding",
   () => {
     const diagnostics = analyzeRule(
