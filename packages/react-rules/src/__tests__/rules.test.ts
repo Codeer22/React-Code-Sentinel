@@ -2080,6 +2080,27 @@ test(
 );
 
 test(
+  "no-useless-fragment reports a fragment with one element and a comment",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <>
+              {/* This is a comment */}
+              <div>Hello</div>
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-useless-fragment allows two different child types",
   () => {
     const diagnostics = analyzeRule(

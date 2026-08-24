@@ -46,20 +46,31 @@ function createDiagnostic(
   };
 }
 
-function isWhitespaceOnlyText(
+function isIgnorableChild(
   child: ts.JsxChild,
 ): boolean {
-  return (
+  if (
     ts.isJsxText(child) &&
     child.getText().trim().length === 0
-  );
+  ) {
+    return true;
+  }
+
+  if (
+    ts.isJsxExpression(child) &&
+    child.expression === undefined
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function getRenderableChildren(
   fragment: ts.JsxFragment,
 ): readonly ts.JsxChild[] {
   return fragment.children.filter(
-    (child) => !isWhitespaceOnlyText(child),
+    (child) => !isIgnorableChild(child),
   );
 }
 
