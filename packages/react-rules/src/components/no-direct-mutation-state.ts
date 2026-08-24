@@ -5,7 +5,7 @@ import type {
 } from "@react-code-sentinel/core";
 
 import type {
-  AstRule,
+  SemanticRule,
 } from "@react-code-sentinel/analyzers";
 
 import {
@@ -50,94 +50,117 @@ function createDiagnostic(
   };
 }
 
-function isStatePropertyAccess(
+function isMutationOperator(
+  kind: ts.SyntaxKind,
+): boolean {
+  return (
+    kind === ts.SyntaxKind.EqualsToken ||
+    kind === ts.SyntaxKind.PlusEqualsToken ||
+    kind === ts.SyntaxKind.MinusEqualsToken ||
+    kind === ts.SyntaxKind.AsteriskEqualsToken ||
+    kind === ts.SyntaxKind.SlashEqualsToken ||
+    kind === ts.SyntaxKind.PercentEqualsToken ||
+    kind === ts.SyntaxKind.AmpersandEqualsToken ||
+    kind === ts.SyntaxKind.BarEqualsToken ||
+    kind === ts.SyntaxKind.CaretEqualsToken ||
+    kind === ts.SyntaxKind.LessThanLessThanEqualsToken ||
+    kind === ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
+    kind ===
+      ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+  );
+}
+
+function isUnaryMutation(
+  operator: ts.SyntaxKind,
+): boolean {
+  return (
+    operator === ts.SyntaxKind.PlusPlusToken ||
+    operator === ts.SyntaxKind.MinusMinusToken
+  );
+}
+
+function isThisStateProperty(
   node: ts.Node,
+  typeChecker: ts.TypeChecker,
 ): node is ts.PropertyAccessExpression {
   if (!ts.isPropertyAccessExpression(node)) {
     return false;
   }
 
+  if (
+    node.expression.kind !==
+    ts.SyntaxKind.ThisKeyword
+  ) {
+    return false;
+  }
+
+  if (node.name.text !== "state") {
+    return false;
+  }
+
+  const symbol =
+    typeChecker.getSymbolAtLocation(
+      node.name,
+    );
+
+  if (symbol === undefined) {
+    return true;
+  }
+
   return (
-    node.expression.kind === ts.SyntaxKind.ThisKeyword &&
-    node.name.text === "state"
+    (symbol.flags &
+      (
+        ts.SymbolFlags.Property |
+        ts.SymbolFlags.Accessor |
+        ts.SymbolFlags.GetAccessor |
+        ts.SymbolFlags.SetAccessor
+      )) !== 0
   );
 }
 
 function isStateMutationTarget(
   node: ts.Node,
+  typeChecker: ts.TypeChecker,
 ): boolean {
-  if (isStatePropertyAccess(node)) {
+  if (
+    isThisStateProperty(
+      node,
+      typeChecker,
+    )
+  ) {
     return true;
   }
 
-  if (ts.isPropertyAccessExpression(node)) {
-    return isStateMutationTarget(node.expression);
+  if (
+    ts.isPropertyAccessExpression(node)
+  ) {
+    return isStateMutationTarget(
+      node.expression,
+      typeChecker,
+    );
   }
 
-  if (ts.isElementAccessExpression(node)) {
-    return isStateMutationTarget(node.expression);
+  if (
+    ts.isElementAccessExpression(node)
+  ) {
+    return isStateMutationTarget(
+      node.expression,
+      typeChecker,
+    );
   }
 
   return false;
 }
 
-function isMutationTarget(
-  node: ts.Node,
-): boolean {
-  return isStateMutationTarget(node);
-}
-function isAssignmentMutation(
-  node: ts.BinaryExpression,
-): boolean {
-  return (
-    node.operatorToken.kind ===
-      ts.SyntaxKind.EqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.PlusEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.MinusEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.AsteriskEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.SlashEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.PercentEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.AmpersandEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.BarEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.CaretEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.LessThanLessThanEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
-    node.operatorToken.kind ===
-      ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
-  );
-}
-function isPrefixMutation(
-  node: ts.PrefixUnaryExpression,
-): boolean {
-  return (
-    node.operator === ts.SyntaxKind.PlusPlusToken ||
-    node.operator === ts.SyntaxKind.MinusMinusToken
-  );
-}
-
-function isPostfixMutation(
-  node: ts.PostfixUnaryExpression,
-): boolean {
-  return (
-    node.operator === ts.SyntaxKind.PlusPlusToken ||
-    node.operator === ts.SyntaxKind.MinusMinusToken
-  );
-}
-
 function isStateMutationMethodCall(
   node: ts.CallExpression,
+  typeChecker: ts.TypeChecker,
 ): boolean {
-  if (!ts.isPropertyAccessExpression(node.expression)) {
+  if (
+    !ts.isPropertyAccessExpression(
+      node.expression,
+    )
+  ) {
     return false;
   }
 
@@ -158,9 +181,12 @@ function isStateMutationMethodCall(
 
   return isStateMutationTarget(
     node.expression.expression,
+    typeChecker,
   );
 }
-export const noDirectMutationStateRule: AstRule = {
+
+export const noDirectMutationStateRule:
+  SemanticRule = {
   meta: {
     id: "react/no-direct-mutation-state",
 
@@ -171,7 +197,7 @@ export const noDirectMutationStateRule: AstRule = {
 
     category: "react",
 
-    kind: "ast",
+    kind: "semantic",
 
     defaultSeverity: "warning",
 
@@ -183,12 +209,21 @@ export const noDirectMutationStateRule: AstRule = {
   analyze(context) {
     const diagnostics: Diagnostic[] = [];
 
+    const {
+      typeChecker,
+    } = context;
+
     walkAst(context.sourceFile, {
       enter(node) {
         if (
           ts.isBinaryExpression(node) &&
-          isAssignmentMutation(node) &&
-          isMutationTarget(node.left)
+          isMutationOperator(
+            node.operatorToken.kind,
+          ) &&
+          isStateMutationTarget(
+            node.left,
+            typeChecker,
+          )
         ) {
           diagnostics.push(
             createDiagnostic(
@@ -202,8 +237,11 @@ export const noDirectMutationStateRule: AstRule = {
 
         if (
           ts.isPrefixUnaryExpression(node) &&
-          isPrefixMutation(node) &&
-          isMutationTarget(node.operand)
+          isUnaryMutation(node.operator) &&
+          isStateMutationTarget(
+            node.operand,
+            typeChecker,
+          )
         ) {
           diagnostics.push(
             createDiagnostic(
@@ -217,8 +255,11 @@ export const noDirectMutationStateRule: AstRule = {
 
         if (
           ts.isPostfixUnaryExpression(node) &&
-          isPostfixMutation(node) &&
-          isMutationTarget(node.operand)
+          isUnaryMutation(node.operator) &&
+          isStateMutationTarget(
+            node.operand,
+            typeChecker,
+          )
         ) {
           diagnostics.push(
             createDiagnostic(
@@ -232,7 +273,10 @@ export const noDirectMutationStateRule: AstRule = {
 
         if (
           ts.isCallExpression(node) &&
-          isStateMutationMethodCall(node)
+          isStateMutationMethodCall(
+            node,
+            typeChecker,
+          )
         ) {
           diagnostics.push(
             createDiagnostic(

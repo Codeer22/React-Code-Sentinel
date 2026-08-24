@@ -1297,3 +1297,112 @@ test(
     );
   },
 );
+
+test(
+  "no-direct-mutation-state ignores unrelated state variable",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        function Counter() {
+          const state = {
+            count: 0,
+          };
+
+          state.count = 1;
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-state reports nested this.state property mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            this.state.user.name = "updated";
+          }
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-state reports this.state element mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update(index, value) {
+            this.state.items[index] = value;
+          }
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-state reports this.state array method mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          addItem(item) {
+            this.state.items.push(item);
+          }
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "no-direct-mutation-state allows setState",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            this.setState({
+              count: 1,
+            });
+          }
+        }
+      `,
+    );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
