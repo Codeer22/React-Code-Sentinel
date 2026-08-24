@@ -2768,3 +2768,20 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-implicit-any-props reports untyped props parameter",
+  () => {
+    const diagnostics = analyzeRule(
+      noImplicitAnyPropsRule,
+      `
+        export function UserCard(
+          props,
+        ) {
+          return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
