@@ -31,6 +31,14 @@ import {
   noUnstableNestedComponentsRule,
 } from "../components/no-unstable-nested-components.js";
 
+import {
+  noImplicitAnyPropsRule,
+} from "../components/no-implicit-any-props.js";
+
+import {
+  noUnsafePropAccessRule,
+} from "../components/no-unsafe-prop-access.js";
+
 test(
   "no-missing-key reports JSX returned from map without key",
   () => {
@@ -2152,6 +2160,221 @@ test(
               {user.name}
             </span>
           ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-implicit-any-props ignores safely typed destructured props",
+  () => {
+    const diagnostics = analyzeRule(
+      noImplicitAnyPropsRule,
+      `
+        interface UserProps {
+          name: string;
+          age: number;
+        }
+
+        export function UserCard({
+          name,
+          age,
+        }: UserProps) {
+          return (
+            <div>
+              {name}
+              {age}
+            </div>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-implicit-any-props reports explicitly any destructured props",
+  () => {
+    const diagnostics = analyzeRule(
+      noImplicitAnyPropsRule,
+      `
+        export function UserCard({
+          name,
+        }: any) {
+          return <div>{name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-implicit-any-props reports explicit any props parameter",
+  () => {
+    const diagnostics = analyzeRule(
+      noImplicitAnyPropsRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-implicit-any-props ignores lowercase helper with any parameter",
+  () => {
+    const diagnostics = analyzeRule(
+      noImplicitAnyPropsRule,
+      `
+        function helper(value: any) {
+          return value;
+        }
+
+        export function UserCard() {
+          return <div>{helper("hello")}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unsafe-prop-access ignores safely typed property access",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        interface UserProps {
+          name: string;
+        }
+
+        export function UserCard(
+          props: UserProps,
+        ) {
+          return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unsafe-prop-access reports unknown property access",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: unknown,
+        ) {
+          return <div>{props.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unsafe-prop-access reports destructured any prop",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard({
+          name,
+        }: any) {
+          return <div>{name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unsafe-prop-access ignores safely typed destructured prop",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        interface UserProps {
+          name: string;
+        }
+
+        export function UserCard({
+          name,
+        }: UserProps) {
+          return <div>{name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unsafe-prop-access ignores shadowed props parameter",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          function render(
+            props: {
+              name: string;
+            },
+          ) {
+            return <div>{props.name}</div>;
+          }
+
+          return render({
+            name: "Alice",
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-unsafe-prop-access reports captured outer props",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          function render() {
+            return <div>{props.name}</div>;
+          }
+
+          return render();
         }
       `,
     );
