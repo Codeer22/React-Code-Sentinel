@@ -24,7 +24,7 @@ import {
 
 function createDiagnostic(
   filePath: string,
-  node: ts.JsxElement | ts.JsxSelfClosingElement,
+  node: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
 ): Diagnostic {
   const sourceFile = node.getSourceFile();
 
@@ -96,6 +96,17 @@ export const noMissingKeyRule: AstRule = {
         }
 
         for (const jsxNode of getReturnedJsx(callback)) {
+          if (ts.isJsxFragment(jsxNode)) {
+            diagnostics.push(
+              createDiagnostic(
+                context.document.filePath,
+                jsxNode,
+              ),
+            );
+
+            continue;
+          }
+
           if (getKeyAttribute(jsxNode) !== undefined) {
             continue;
           }

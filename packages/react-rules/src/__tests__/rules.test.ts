@@ -1064,6 +1064,90 @@ test(
 );
 
 test(
+  "no-missing-key reports JSX inside an unkeyed fragment",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => (
+            <>
+              <div>{user.name}</div>
+              <span>{user.email}</span>
+            </>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key accepts keyed fragment",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => (
+            <React.Fragment key={user.id}>
+              <div>{user.name}</div>
+              <span>{user.email}</span>
+            </React.Fragment>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-missing-key reports unkeyed fragment returned from block callback",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            return (
+              <>
+                <div>{user.name}</div>
+              </>
+            );
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports unkeyed explicit React fragment",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => (
+            <React.Fragment>
+              <div>{user.name}</div>
+            </React.Fragment>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
   "no-array-index-key ignores shadowed index binding",
   () => {
     const diagnostics = analyzeRule(

@@ -50,10 +50,12 @@ export function getReturnedJsx(
 ): readonly (
   | ts.JsxElement
   | ts.JsxSelfClosingElement
+  | ts.JsxFragment
 )[] {
   const results: (
     | ts.JsxElement
     | ts.JsxSelfClosingElement
+    | ts.JsxFragment
   )[] = [];
 
   function addExpression(
@@ -71,7 +73,8 @@ export function getReturnedJsx(
       ts.isJsxElement(expression) ||
       ts.isJsxSelfClosingElement(
         expression,
-      )
+      ) ||
+      ts.isJsxFragment(expression)
     ) {
       results.push(expression);
       return;
@@ -93,11 +96,11 @@ export function getReturnedJsx(
   ): void {
     for (
       const clause
-        of caseBlock.clauses
+      of caseBlock.clauses
     ) {
       for (
         const statement
-          of clause.statements
+        of clause.statements
       ) {
         visitStatement(statement);
       }
@@ -122,7 +125,7 @@ export function getReturnedJsx(
     ) {
       for (
         const child
-          of statement.statements
+        of statement.statements
       ) {
         visitStatement(child);
       }
@@ -206,7 +209,7 @@ export function getReturnedJsx(
 
   for (
     const statement
-      of body.statements
+    of body.statements
   ) {
     visitStatement(statement);
   }
