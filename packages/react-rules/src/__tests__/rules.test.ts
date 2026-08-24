@@ -1620,3 +1620,127 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-dangerous-html ignores normal JSX rendering",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return <div>{html}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-dangerous-html ignores similarly named attributes",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return (
+            <div
+              dangerouslySetInnerHTMLSomething={html}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-dangerous-html reports dangerous HTML on custom components",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return (
+            <Content
+              dangerouslySetInnerHTML={{
+                __html: html,
+              }}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-dangerous-html reports multiple dangerous HTML usages",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ first, second }) {
+          return (
+            <>
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: first,
+                }}
+              />
+
+              <section
+                dangerouslySetInnerHTML={{
+                  __html: second,
+                }}
+              />
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-dangerous-html reports attribute without a value",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App() {
+          return <div dangerouslySetInnerHTML />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-dangerous-html reports expression-valued dangerous HTML",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return (
+            <div
+              dangerouslySetInnerHTML={html}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
