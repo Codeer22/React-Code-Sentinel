@@ -2684,3 +2684,23 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+
+test(
+  "no-unsafe-prop-access reports aliased props parameter",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          const userProps = props;
+
+          return <div>{userProps.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

@@ -240,16 +240,83 @@ function isUnsafeType(
 
 function isDirectPropsAccess(
   node: ts.PropertyAccessExpression,
-  propsParameter:
-    ts.ParameterDeclaration,
-  typeChecker:
-    ts.TypeChecker,
+  propsParameter: ts.ParameterDeclaration,
+  typeChecker: ts.TypeChecker,
 ): boolean {
-  if (
-    !ts.isIdentifier(
-      node.expression,
-    )
-  ) {
+  if (!ts.isIdentifier(node.expression)) {
+    return false;
+  }
+
+  const targetSymbol =
+    typeChecker.getSymbolAtLocation(
+      propsParameter.name,
+    );
+
+  if (targetSymbol === undefined) {
+    return false;
+  }
+
+  const visitedSymbols =
+    new Set<ts.Symbol>();
+
+  function symbolReferencesProps(
+    symbol: ts.Symbol,
+  ): boolean {
+    if (symbol === targetSymbol) {
+      return true;
+    }
+
+    if (visitedSymbols.has(symbol)) {
+      return false;
+    }
+
+    visitedSymbols.add(symbol);
+
+    for (
+      const declaration of
+      symbol.declarations ?? []
+    ) {
+      if (
+        !ts.isVariableDeclaration(
+          declaration,
+        )
+      ) {
+        continue;
+      }
+
+      const initializer =
+        declaration.initializer;
+
+      if (
+        initializer === undefined
+      ) {
+        continue;
+      }
+
+      if (
+        !ts.isIdentifier(
+          initializer,
+        )
+      ) {
+        continue;
+      }
+
+      const initializerSymbol =
+        typeChecker.getSymbolAtLocation(
+          initializer,
+        );
+
+      if (
+        initializerSymbol !==
+          undefined &&
+        symbolReferencesProps(
+          initializerSymbol,
+        )
+      ) {
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -258,20 +325,12 @@ function isDirectPropsAccess(
       node.expression,
     );
 
-  const parameterSymbol =
-    typeChecker.getSymbolAtLocation(
-      propsParameter.name,
-    );
-
-  if (
-    accessSymbol === undefined ||
-    parameterSymbol === undefined
-  ) {
+  if (accessSymbol === undefined) {
     return false;
   }
 
-  return (
-    accessSymbol === parameterSymbol
+  return symbolReferencesProps(
+    accessSymbol,
   );
 }
 
