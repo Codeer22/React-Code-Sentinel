@@ -52,7 +52,6 @@ function createDiagnostic(
       start: {
         line:
           start.line + 1,
-
         column:
           start.character + 1,
       },
@@ -60,7 +59,6 @@ function createDiagnostic(
       end: {
         line:
           end.line + 1,
-
         column:
           end.character + 1,
       },
@@ -85,11 +83,11 @@ function isMutationOperator(
     kind === ts.SyntaxKind.BarEqualsToken ||
     kind === ts.SyntaxKind.CaretEqualsToken ||
     kind ===
-    ts.SyntaxKind.LessThanLessThanEqualsToken ||
+      ts.SyntaxKind.LessThanLessThanEqualsToken ||
     kind ===
-    ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
+      ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
     kind ===
-    ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+      ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
   );
 }
 
@@ -98,9 +96,9 @@ function isUnaryMutation(
 ): boolean {
   return (
     operator ===
-    ts.SyntaxKind.PlusPlusToken ||
+      ts.SyntaxKind.PlusPlusToken ||
     operator ===
-    ts.SyntaxKind.MinusMinusToken
+      ts.SyntaxKind.MinusMinusToken
   );
 }
 
@@ -195,9 +193,9 @@ function isPropsBinding(
     )
       ? propsParameter.name
       : findBindingIdentifier(
-        propsParameter.name,
-        identifier.text,
-      );
+          propsParameter.name,
+          identifier.text,
+        );
 
   if (
     bindingIdentifier === undefined
@@ -289,68 +287,161 @@ function isPropsMutationTarget(
     return true;
   }
 
-  const symbol =
+  const targetSymbol =
     checker.getSymbolAtLocation(node);
 
-  if (symbol === undefined) {
+  if (targetSymbol === undefined) {
     return false;
   }
 
-  const declarations =
-    symbol.declarations ?? [];
+  const visitedSymbols =
+    new Set<ts.Symbol>();
 
-  for (const declaration of declarations) {
+  function symbolReferencesProps(
+    symbol: ts.Symbol,
+  ): boolean {
     if (
-      ts.isVariableDeclaration(
-        declaration,
-      )
+      visitedSymbols.has(symbol)
     ) {
-      if (
-        declaration.initializer !==
-        undefined &&
-        isPropsMutationTarget(
-          declaration.initializer,
-          propsParameter,
-          checker,
-        )
-      ) {
-        return true;
-      }
-
-      continue;
+      return false;
     }
 
-    if (
-      ts.isBindingElement(
-        declaration,
-      )
-    ) {
-      const variableDeclaration =
-        declaration.parent.parent;
+    visitedSymbols.add(symbol);
 
+    for (
+      const declaration of
+      symbol.declarations ?? []
+    ) {
       if (
-        !ts.isVariableDeclaration(
-          variableDeclaration,
+        ts.isVariableDeclaration(
+          declaration,
         )
       ) {
+        if (
+          declaration.initializer !==
+          undefined &&
+          isPropsMutationTarget(
+            declaration.initializer,
+            propsParameter,
+            checker,
+          )
+        ) {
+          return true;
+        }
+
         continue;
       }
 
       if (
-        variableDeclaration.initializer !==
-        undefined &&
-        isPropsMutationTarget(
-          variableDeclaration.initializer,
-          propsParameter,
-          checker,
+        ts.isBindingElement(
+          declaration,
         )
       ) {
-        return true;
+        const variableDeclaration =
+          declaration.parent.parent;
+
+        if (
+          !ts.isVariableDeclaration(
+            variableDeclaration,
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          variableDeclaration.initializer !==
+          undefined &&
+          isPropsMutationTarget(
+            variableDeclaration.initializer,
+            propsParameter,
+            checker,
+          )
+        ) {
+          return true;
+        }
       }
     }
+
+    /*
+     * Assignment alias:
+     *
+     * let currentProps;
+     * currentProps = props;
+     *
+     * The assignment is used only to establish
+     * the alias. analyzeMutation() prevents the
+     * assignment itself from becoming a diagnostic.
+     */
+    let scope:
+      | ts.Node
+      | undefined =
+      node.parent;
+
+    while (
+      scope !== undefined &&
+      !ts.isFunctionLike(scope) &&
+      !ts.isSourceFile(scope)
+    ) {
+      scope = scope.parent;
+    }
+
+    if (
+      scope === undefined
+    ) {
+      return false;
+    }
+
+    let found = false;
+
+    function visit(
+      current: ts.Node,
+    ): void {
+      if (found) {
+        return;
+      }
+
+      if (
+        ts.isBinaryExpression(
+          current,
+        ) &&
+        current.operatorToken.kind ===
+          ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(
+          current.left,
+        )
+      ) {
+        const leftSymbol =
+          checker.getSymbolAtLocation(
+            current.left,
+          );
+
+        if (
+          leftSymbol === symbol &&
+          isPropsMutationTarget(
+            current.right,
+            propsParameter,
+            checker,
+          )
+        ) {
+          found = true;
+          return;
+        }
+      }
+
+      ts.forEachChild(
+        current,
+        visit,
+      );
+    }
+
+    visit(scope);
+
+    return found;
   }
 
-  return false;
+  return symbolReferencesProps(
+    targetSymbol,
+  );
 }
 
 function analyzeMutation(
@@ -364,19 +455,43 @@ function analyzeMutation(
     ts.isBinaryExpression(node) &&
     isMutationOperator(
       node.operatorToken.kind,
-    ) &&
-    isPropsMutationTarget(
-      node.left,
-      propsParameter,
-      checker,
     )
   ) {
-    diagnostics.push(
-      createDiagnostic(
-        filePath,
+    /*
+     * Do not report:
+     *
+     * let currentProps;
+     * currentProps = props;
+     *
+     * This assignment establishes an alias.
+     */
+    if (
+      node.operatorToken.kind ===
+        ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(node.left) &&
+      isPropsMutationTarget(
+        node.right,
+        propsParameter,
+        checker,
+      )
+    ) {
+      return;
+    }
+
+    if (
+      isPropsMutationTarget(
         node.left,
-      ),
-    );
+        propsParameter,
+        checker,
+      )
+    ) {
+      diagnostics.push(
+        createDiagnostic(
+          filePath,
+          node.left,
+        ),
+      );
+    }
 
     return;
   }
@@ -459,104 +574,106 @@ function analyzeMutation(
 
 export const noDirectMutationPropsRule:
   SemanticRule = {
-  meta: {
-    id:
-      "react/no-direct-mutation-props",
+    meta: {
+      id:
+        "react/no-direct-mutation-props",
 
-    name:
-      "No direct mutation of props",
+      name:
+        "No direct mutation of props",
 
-    description:
-      "Detects direct mutation of React component props.",
+      description:
+        "Detects direct mutation of React component props.",
 
-    category:
-      "react",
+      category:
+        "react",
 
-    kind:
-      "semantic",
+      kind:
+        "semantic",
 
-    defaultSeverity:
-      "warning",
+      defaultSeverity:
+        "warning",
 
-    recommended:
-      true,
+      recommended:
+        true,
 
-    fixable:
-      false,
-  },
+      fixable:
+        false,
+    },
 
-  analyze(context) {
-    const diagnostics:
-      Diagnostic[] = [];
+    analyze(context) {
+      const diagnostics:
+        Diagnostic[] = [];
 
-    const checker =
-      context.typeChecker;
+      const checker =
+        context.typeChecker;
 
-    function analyzeComponent(
-      functionNode:
-        | ts.FunctionDeclaration
-        | ts.ArrowFunction
-        | ts.FunctionExpression,
-    ): void {
-      if (
-        !isReactComponentFunction(
-          functionNode,
-        )
-      ) {
-        return;
-      }
-
-      const propsParameter =
-        getPropsParameter(
-          functionNode,
-        );
-
-      if (propsParameter === undefined) {
-        return;
-      }
-
-      const resolvedPropsParameter =
-        propsParameter;
-
-      function visit(
-        node: ts.Node,
+      function analyzeComponent(
+        functionNode:
+          | ts.FunctionDeclaration
+          | ts.ArrowFunction
+          | ts.FunctionExpression,
       ): void {
-        analyzeMutation(
-          node,
-          resolvedPropsParameter,
-          checker,
-          context.document.filePath,
-          diagnostics,
-        );
+        if (
+          !isReactComponentFunction(
+            functionNode,
+          )
+        ) {
+          return;
+        }
+
+        const propsParameter =
+          getPropsParameter(
+            functionNode,
+          );
+
+        if (
+          propsParameter === undefined
+        ) {
+          return;
+        }
+
+        const resolvedPropsParameter =
+          propsParameter;
+
+        function visit(
+          node: ts.Node,
+        ): void {
+          analyzeMutation(
+            node,
+            resolvedPropsParameter,
+            checker,
+            context.document.filePath,
+            diagnostics,
+          );
+
+          ts.forEachChild(
+            node,
+            visit,
+          );
+        }
 
         ts.forEachChild(
-          node,
+          functionNode.body ??
+          functionNode,
           visit,
         );
       }
 
-      ts.forEachChild(
-        functionNode.body ??
-        functionNode,
-        visit,
-      );
-    }
-
-    walkAst(
-      context.sourceFile,
-      {
-        enter(node) {
-          if (
-            ts.isFunctionDeclaration(node) ||
-            ts.isArrowFunction(node) ||
-            ts.isFunctionExpression(node)
-          ) {
-            analyzeComponent(node);
-          }
+      walkAst(
+        context.sourceFile,
+        {
+          enter(node) {
+            if (
+              ts.isFunctionDeclaration(node) ||
+              ts.isArrowFunction(node) ||
+              ts.isFunctionExpression(node)
+            ) {
+              analyzeComponent(node);
+            }
+          },
         },
-      },
-    );
+      );
 
-    return diagnostics;
-  },
-};
+      return diagnostics;
+    },
+  };

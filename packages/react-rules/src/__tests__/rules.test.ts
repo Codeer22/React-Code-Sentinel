@@ -183,6 +183,7 @@ test(
     );
   },
 );
+
 test(
   "no-unstable-nested-components reports nested component",
   () => {
@@ -226,6 +227,7 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
 test(
   "no-array-index-key reports callback index used as key",
   () => {
@@ -1078,6 +1080,7 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+
 test(
   "no-missing-key accepts parenthesized JSX",
   () => {
@@ -1436,7 +1439,6 @@ test(
   },
 );
 
-
 test(
   "no-direct-mutation-props reports captured props in nested function",
   () => {
@@ -1788,7 +1790,6 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
-
 
 test(
   "no-unstable-nested-components reports uppercase nested function used as component",
@@ -2256,7 +2257,6 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
-
 
 test(
   "no-array-index-key ignores shadowed block index in key expression",
@@ -2809,6 +2809,7 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
 test(
   "no-array-index-key reports assigned index alias",
   () => {
@@ -2827,6 +2828,111 @@ test(
               </div>
             );
           });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports aliased props mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          const currentProps = props;
+
+          currentProps.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports chained aliased props mutation",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          const first = props;
+          const second = first;
+
+          second.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props ignores shadowed aliased props",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          const currentProps = {
+            name: "Local",
+          };
+
+          function update(props) {
+            const currentProps = props;
+
+            currentProps.name = "Updated";
+          }
+
+          update(currentProps);
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports captured aliased props",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          const currentProps = props;
+
+          function update() {
+            currentProps.name = "Updated";
+          }
+
+          update();
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports assigned props alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          let currentProps;
+
+          currentProps = props;
+
+          currentProps.name = "Updated";
         }
       `,
     );
