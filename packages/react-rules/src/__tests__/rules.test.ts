@@ -2745,3 +2745,26 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-missing-key reports JSX assigned to local variable",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            let element;
+
+            if (user.active) {
+              element = <div>{user.name}</div>;
+            }
+
+            return element;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

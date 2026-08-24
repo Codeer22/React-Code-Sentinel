@@ -172,6 +172,25 @@ export function getReturnedJsx(
     }
 
     if (
+      ts.isExpressionStatement(statement) &&
+      ts.isBinaryExpression(
+        statement.expression,
+      ) &&
+      statement.expression.operatorToken.kind ===
+      ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(
+        statement.expression.left,
+      )
+    ) {
+      localVariables.set(
+        statement.expression.left.text,
+        statement.expression.right,
+      );
+
+      return;
+    }
+
+    if (
       ts.isReturnStatement(statement)
     ) {
       resolvingNames.clear();
