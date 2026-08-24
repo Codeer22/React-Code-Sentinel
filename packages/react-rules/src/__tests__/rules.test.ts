@@ -2724,3 +2724,24 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+test(
+  "no-useless-fragment reports conditional JSX expression as one child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App({ condition }) {
+          return (
+            <>
+              {condition
+                ? <div>Hello</div>
+                : <span>Hello</span>}
+            </>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
