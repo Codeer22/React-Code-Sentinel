@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": false,
     "rootDir": "./src",
-    "outDir": "./dist-test"
+    "outDir": "./dist-test",
+    "types": ["node"]
   },
   "include": [
     "src/**/*.ts"
