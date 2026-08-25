@@ -149,45 +149,85 @@ function isStateMutationTarget(
     );
   }
 
-  if (ts.isIdentifier(node)) {
-    const symbol =
-      typeChecker.getSymbolAtLocation(node);
+  if (!ts.isIdentifier(node)) {
+    return false;
+  }
 
-    if (symbol === undefined) {
-      return false;
+  const symbol =
+    typeChecker.getSymbolAtLocation(node);
+
+  if (symbol === undefined) {
+    return false;
+  }
+
+  for (
+    const declaration of
+      symbol.declarations ?? []
+  ) {
+    if (
+      !ts.isVariableDeclaration(
+        declaration,
+      )
+    ) {
+      continue;
     }
 
-    const declarations =
-      symbol.declarations ?? [];
-
-    for (const declaration of declarations) {
-      if (
-        !ts.isVariableDeclaration(
-          declaration,
-        )
-      ) {
-        continue;
-      }
-
-      if (
-        declaration.initializer ===
-        undefined
-      ) {
-        continue;
-      }
-
-      if (
-        isStateMutationTarget(
-          declaration.initializer,
-          typeChecker,
-        )
-      ) {
-        return true;
-      }
+    if (
+      declaration.initializer !==
+      undefined &&
+      isStateMutationTarget(
+        declaration.initializer,
+        typeChecker,
+      )
+    ) {
+      return true;
     }
   }
 
-  return false;
+  const sourceFile =
+    node.getSourceFile();
+
+  let found = false;
+
+  function findAssignment(
+    current: ts.Node,
+  ): void {
+    if (found) {
+      return;
+    }
+
+    if (
+      ts.isBinaryExpression(current) &&
+      current.operatorToken.kind ===
+        ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(current.left)
+    ) {
+      const leftSymbol =
+        typeChecker.getSymbolAtLocation(
+          current.left,
+        );
+
+      if (
+        leftSymbol === symbol &&
+        isStateMutationTarget(
+          current.right,
+          typeChecker,
+        )
+      ) {
+        found = true;
+        return;
+      }
+    }
+
+    ts.forEachChild(
+      current,
+      findAssignment,
+    );
+  }
+
+  findAssignment(sourceFile);
+
+  return found;
 }
 
 function isStateMutationMethodCall(
@@ -253,6 +293,27 @@ export const noDirectMutationStateRule:
 
     walkAst(context.sourceFile, {
       enter(node) {
+        // Assigning this.state to an alias is not itself a state mutation.
+        // The mutation should be reported when the alias is subsequently
+        // mutated, e.g.:
+        //
+        //   currentState = this.state;
+        //   currentState.count = 1;
+        //
+        if (
+          ts.isBinaryExpression(node) &&
+          isMutationOperator(
+            node.operatorToken.kind,
+          ) &&
+          ts.isIdentifier(node.left) &&
+          isStateMutationTarget(
+            node.right,
+            typeChecker,
+          )
+        ) {
+          return;
+        }
+
         if (
           ts.isBinaryExpression(node) &&
           isMutationOperator(

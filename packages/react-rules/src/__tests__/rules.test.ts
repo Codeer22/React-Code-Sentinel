@@ -2940,3 +2940,25 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-direct-mutation-state reports assigned state alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            let currentState;
+
+            currentState = this.state;
+
+            currentState.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
