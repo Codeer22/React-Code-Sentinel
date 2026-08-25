@@ -2992,3 +2992,69 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-missing-key reports JSX local variable assigned in conditional branch",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        const items = data.map((item) => {
+          let element;
+
+          if (item.active) {
+            element = <div />;
+          }
+
+          return element;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports JSX local variable assigned in both conditional branches",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        const items = data.map((item) => {
+          let element;
+
+          if (item.active) {
+            element = <div />;
+          } else {
+            element = <span />;
+          }
+
+          return element;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-missing-key reports JSX local variable reassigned before return",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        const items = data.map((item) => {
+          let element = <div />;
+
+          element = <span />;
+
+          return element;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

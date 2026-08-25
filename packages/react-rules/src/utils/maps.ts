@@ -58,10 +58,14 @@ export function getReturnedJsx(
     | ts.JsxFragment
   )[] = [];
 
+  type ExpressionValue =
+    | ts.Expression
+    | undefined;
+
   const localVariables =
     new Map<
       string,
-      ts.Expression | undefined
+      ExpressionValue[]
     >();
 
   const resolvingNames =
@@ -113,35 +117,66 @@ export function getReturnedJsx(
         return;
       }
 
+      const values =
+        localVariables.get(name);
+
       if (
-        !localVariables.has(name)
+        values === undefined
       ) {
         return;
       }
 
       resolvingNames.add(name);
 
-      addExpression(
-        localVariables.get(name),
-      );
+      for (
+        const value of values
+      ) {
+        addExpression(value);
+      }
 
       resolvingNames.delete(name);
     }
   }
 
-  function visitCaseBlock(
-    caseBlock: ts.CaseBlock,
+  function setVariable(
+    name: string,
+    expression:
+      | ts.Expression
+      | undefined,
   ): void {
-    for (
-      const clause
-      of caseBlock.clauses
+    localVariables.set(
+      name,
+      [expression],
+    );
+  }
+
+  function addVariableAlternative(
+    name: string,
+    expression:
+      | ts.Expression
+      | undefined,
+  ): void {
+    const existing =
+      localVariables.get(name);
+
+    if (
+      existing === undefined
     ) {
-      for (
-        const statement
-        of clause.statements
-      ) {
-        visitStatement(statement);
-      }
+      localVariables.set(
+        name,
+        [expression],
+      );
+
+      return;
+    }
+
+    if (
+      !existing.some(
+        (value) =>
+          value === expression,
+      )
+    ) {
+      existing.push(expression);
     }
   }
 
@@ -161,7 +196,7 @@ export function getReturnedJsx(
             declaration.name,
           )
         ) {
-          localVariables.set(
+          setVariable(
             declaration.name.text,
             declaration.initializer,
           );
@@ -177,12 +212,12 @@ export function getReturnedJsx(
         statement.expression,
       ) &&
       statement.expression.operatorToken.kind ===
-      ts.SyntaxKind.EqualsToken &&
+        ts.SyntaxKind.EqualsToken &&
       ts.isIdentifier(
         statement.expression.left,
       )
     ) {
-      localVariables.set(
+      setVariable(
         statement.expression.left.text,
         statement.expression.right,
       );
@@ -218,9 +253,33 @@ export function getReturnedJsx(
     if (
       ts.isIfStatement(statement)
     ) {
+      const beforeBranch =
+        new Map(
+          localVariables,
+        );
+
       visitStatement(
         statement.thenStatement,
       );
+
+      const thenState =
+        new Map(
+          localVariables,
+        );
+
+      localVariables.clear();
+
+      for (
+        const [
+          name,
+          values,
+        ] of beforeBranch
+      ) {
+        localVariables.set(
+          name,
+          [...values],
+        );
+      }
 
       if (
         statement.elseStatement !==
@@ -228,6 +287,58 @@ export function getReturnedJsx(
       ) {
         visitStatement(
           statement.elseStatement,
+        );
+      }
+
+      const elseState =
+        new Map(
+          localVariables,
+        );
+
+      localVariables.clear();
+
+      const names = new Set<string>([
+        ...thenState.keys(),
+        ...elseState.keys(),
+      ]);
+
+      for (
+        const name of names
+      ) {
+        const values: ExpressionValue[] =
+          [];
+
+        for (
+          const value of
+            thenState.get(name) ?? []
+        ) {
+          if (
+            !values.some(
+              (existing) =>
+                existing === value,
+            )
+          ) {
+            values.push(value);
+          }
+        }
+
+        for (
+          const value of
+            elseState.get(name) ?? []
+        ) {
+          if (
+            !values.some(
+              (existing) =>
+                existing === value,
+            )
+          ) {
+            values.push(value);
+          }
+        }
+
+        localVariables.set(
+          name,
+          values,
         );
       }
 
@@ -265,9 +376,17 @@ export function getReturnedJsx(
     if (
       ts.isSwitchStatement(statement)
     ) {
-      visitCaseBlock(
-        statement.caseBlock,
-      );
+      for (
+        const clause
+        of statement.caseBlock.clauses
+      ) {
+        for (
+          const child
+          of clause.statements
+        ) {
+          visitStatement(child);
+        }
+      }
     }
   }
 
