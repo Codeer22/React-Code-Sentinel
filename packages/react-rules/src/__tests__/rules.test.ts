@@ -3078,3 +3078,51 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-missing-key reports JSX local variable reassigned before return",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            let element = <div>{user.name}</div>;
+
+            element = <span>{user.email}</span>;
+
+            return element;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports JSX local variable assigned in both conditional branches",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            let element;
+
+            if (user.active) {
+              element = <div>{user.name}</div>;
+            } else {
+              element = <span>{user.email}</span>;
+            }
+
+            return element;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
