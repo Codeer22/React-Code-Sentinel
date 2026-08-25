@@ -110,7 +110,7 @@ function referencesIdentifier(
 
     for (
       const declaration
-        of symbol.declarations ?? []
+      of symbol.declarations ?? []
     ) {
       if (
         !ts.isVariableDeclaration(
@@ -144,7 +144,7 @@ function referencesIdentifier(
 
       if (
         initializerSymbol !==
-          undefined &&
+        undefined &&
         symbolReferencesTarget(
           initializerSymbol,
         )
@@ -277,8 +277,8 @@ function referencesIdentifier(
   const nodeSymbol =
     ts.isIdentifier(node)
       ? typeChecker.getSymbolAtLocation(
-          node,
-        )
+        node,
+      )
       : undefined;
 
   if (
@@ -287,14 +287,32 @@ function referencesIdentifier(
     return false;
   }
 
-  let found = false;
+  const referenceStart =
+    node.getStart(
+      node.getSourceFile(),
+    );
+
+  let initializerReferencesTarget =
+    false;
+
+  let latestAssignmentReferencesTarget:
+    | boolean
+    | undefined;
 
   function visit(
     current: ts.Node,
   ): void {
-    if (found) {
+    if (
+      current !== scope &&
+      ts.isFunctionLike(current)
+    ) {
       return;
     }
+
+    const appearsBeforeReference =
+      current.getStart(
+        current.getSourceFile(),
+      ) < referenceStart;
 
     /*
      * Variable alias:
@@ -304,6 +322,7 @@ function referencesIdentifier(
      * const anotherIndex = itemIndex;
      */
     if (
+      appearsBeforeReference &&
       ts.isVariableDeclaration(
         current,
       ) &&
@@ -311,7 +330,7 @@ function referencesIdentifier(
         current.name,
       ) &&
       current.initializer !==
-        undefined
+      undefined
     ) {
       const declaredSymbol =
         typeChecker.getSymbolAtLocation(
@@ -320,15 +339,14 @@ function referencesIdentifier(
 
       if (
         declaredSymbol !==
-          undefined &&
+        undefined &&
         declaredSymbol ===
-          nodeSymbol &&
-        expressionReferencesTarget(
-          current.initializer,
-        )
+        nodeSymbol
       ) {
-        found = true;
-        return;
+        initializerReferencesTarget =
+          expressionReferencesTarget(
+            current.initializer,
+          );
       }
     }
 
@@ -340,31 +358,34 @@ function referencesIdentifier(
      * itemIndex = index;
      */
     if (
+      appearsBeforeReference &&
       ts.isBinaryExpression(
         current,
-      ) &&
-      current.operatorToken.kind ===
-        ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(
-        current.left,
       )
     ) {
-      const leftSymbol =
-        typeChecker.getSymbolAtLocation(
-          current.left,
-        );
-
       if (
-        leftSymbol !==
-          undefined &&
-        leftSymbol ===
-          nodeSymbol &&
-        expressionReferencesTarget(
-          current.right,
+        current.operatorToken.kind ===
+        ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(
+          current.left,
         )
       ) {
-        found = true;
-        return;
+        const leftSymbol =
+          typeChecker.getSymbolAtLocation(
+            current.left,
+          );
+
+        if (
+          leftSymbol !==
+          undefined &&
+          leftSymbol ===
+          nodeSymbol
+        ) {
+          latestAssignmentReferencesTarget =
+            expressionReferencesTarget(
+              current.right,
+            );
+        }
       }
     }
 
@@ -376,316 +397,323 @@ function referencesIdentifier(
 
   visit(scope);
 
-  return found;
+  if (
+    latestAssignmentReferencesTarget !==
+    undefined
+  ) {
+    return latestAssignmentReferencesTarget;
+  }
+
+  return initializerReferencesTarget;
 }
 
 function getReturnedJsxIncludingNestedClosures(
-  callback:
-    | ts.ArrowFunction
-    | ts.FunctionExpression,
-): readonly (
-  | ts.JsxElement
-  | ts.JsxSelfClosingElement
-)[] {
-  const results: (
-    | ts.JsxElement
-    | ts.JsxSelfClosingElement
-  )[] = [];
+      callback:
+        | ts.ArrowFunction
+        | ts.FunctionExpression,
+    ): readonly (
+      | ts.JsxElement
+      | ts.JsxSelfClosingElement
+    )[] {
+      const results: (
+        | ts.JsxElement
+        | ts.JsxSelfClosingElement
+      )[] = [];
 
-  const visitedFunctions = new Set<ts.Node>();
+      const visitedFunctions = new Set<ts.Node>();
 
-  function addExpression(
-    expression:
-      | ts.Expression
-      | undefined,
-  ): void {
-    if (expression === undefined) {
-      return;
-    }
+      function addExpression(
+        expression:
+          | ts.Expression
+          | undefined,
+      ): void {
+        if (expression === undefined) {
+          return;
+        }
 
-    if (
-      ts.isJsxElement(expression) ||
-      ts.isJsxSelfClosingElement(expression)
-    ) {
-      results.push(expression);
-      return;
-    }
-
-    if (
-      ts.isParenthesizedExpression(expression)
-    ) {
-      addExpression(
-        expression.expression,
-      );
-    }
-  }
-
-  function visitFunction(
-    functionNode:
-      | ts.ArrowFunction
-      | ts.FunctionExpression,
-  ): void {
-    if (visitedFunctions.has(functionNode)) {
-      return;
-    }
-
-    visitedFunctions.add(functionNode);
-
-    if (
-      ts.isArrowFunction(functionNode) &&
-      !ts.isBlock(functionNode.body)
-    ) {
-      addExpression(functionNode.body);
-      return;
-    }
-
-    if (!ts.isBlock(functionNode.body)) {
-      return;
-    }
-
-    for (
-      const statement of
-      functionNode.body.statements
-    ) {
-      visitStatement(statement);
-    }
-  }
-
-  function visitStatement(
-    statement: ts.Statement,
-  ): void {
-    if (ts.isReturnStatement(statement)) {
-      addExpression(statement.expression);
-
-      if (
-        statement.expression !==
-        undefined
-      ) {
-        visitExpression(
-          statement.expression,
-        );
-      }
-
-      return;
-    }
-
-    if (ts.isVariableStatement(statement)) {
-      for (
-        const declaration of
-        statement.declarationList.declarations
-      ) {
         if (
-          declaration.initializer !==
-          undefined
+          ts.isJsxElement(expression) ||
+          ts.isJsxSelfClosingElement(expression)
         ) {
-          visitExpression(
-            declaration.initializer,
+          results.push(expression);
+          return;
+        }
+
+        if (
+          ts.isParenthesizedExpression(expression)
+        ) {
+          addExpression(
+            expression.expression,
           );
         }
       }
 
-      return;
-    }
+      function visitFunction(
+        functionNode:
+          | ts.ArrowFunction
+          | ts.FunctionExpression,
+      ): void {
+        if (visitedFunctions.has(functionNode)) {
+          return;
+        }
 
-    if (ts.isBlock(statement)) {
-      for (
-        const child of
-        statement.statements
-      ) {
-        visitStatement(child);
-      }
+        visitedFunctions.add(functionNode);
 
-      return;
-    }
-
-    if (ts.isIfStatement(statement)) {
-      visitStatement(
-        statement.thenStatement,
-      );
-
-      if (
-        statement.elseStatement !==
-        undefined
-      ) {
-        visitStatement(
-          statement.elseStatement,
-        );
-      }
-
-      return;
-    }
-
-    if (ts.isTryStatement(statement)) {
-      visitStatement(
-        statement.tryBlock,
-      );
-
-      if (
-        statement.catchClause !==
-        undefined
-      ) {
-        visitStatement(
-          statement.catchClause.block,
-        );
-      }
-
-      if (
-        statement.finallyBlock !==
-        undefined
-      ) {
-        visitStatement(
-          statement.finallyBlock,
-        );
-      }
-
-      return;
-    }
-
-    if (ts.isSwitchStatement(statement)) {
-      for (
-        const clause of
-        statement.caseBlock.clauses
-      ) {
-        for (
-          const child of
-          clause.statements
+        if (
+          ts.isArrowFunction(functionNode) &&
+          !ts.isBlock(functionNode.body)
         ) {
-          visitStatement(child);
-        }
-      }
-    }
-  }
-
-  function visitExpression(
-    expression: ts.Expression,
-  ): void {
-    if (
-      ts.isArrowFunction(expression) ||
-      ts.isFunctionExpression(expression)
-    ) {
-      visitFunction(expression);
-      return;
-    }
-
-    ts.forEachChild(
-      expression,
-      (child) => {
-        if (ts.isExpression(child)) {
-          visitExpression(child);
-        }
-      },
-    );
-  }
-
-  visitFunction(callback);
-
-  return results;
-}
-
-export const noArrayIndexKeyRule:
-  SemanticRule = {
-    meta: {
-      id: "react/no-array-index-key",
-
-      name: "No array index key",
-
-      description:
-        "Detects React keys that use the array index from a map callback.",
-
-      category: "react",
-
-      kind: "semantic",
-
-      defaultSeverity: "warning",
-
-      recommended: true,
-
-      fixable: false,
-    },
-
-    analyze(context) {
-      const diagnostics: Diagnostic[] = [];
-
-      function visit(node: ts.Node): void {
-        if (!isMapCall(node)) {
-          ts.forEachChild(
-            node,
-            visit,
-          );
-
+          addExpression(functionNode.body);
           return;
         }
 
-        const callback =
-          getMapCallback(node);
-
-        if (callback === undefined) {
-          return;
-        }
-
-        const indexParameter =
-          getIndexParameter(callback);
-
-        if (indexParameter === undefined) {
+        if (!ts.isBlock(functionNode.body)) {
           return;
         }
 
         for (
-          const jsxNode of
-          getReturnedJsxIncludingNestedClosures(
-            callback,
-          )
+          const statement of
+          functionNode.body.statements
         ) {
-          const keyAttribute =
-            getKeyAttribute(jsxNode);
+          visitStatement(statement);
+        }
+      }
 
-          if (keyAttribute === undefined) {
-            continue;
-          }
+      function visitStatement(
+        statement: ts.Statement,
+      ): void {
+        if (ts.isReturnStatement(statement)) {
+          addExpression(statement.expression);
 
           if (
-            keyAttribute.initializer ===
+            statement.expression !==
             undefined
           ) {
-            continue;
-          }
-
-          if (
-            !ts.isJsxExpression(
-              keyAttribute.initializer,
-            )
-          ) {
-            continue;
-          }
-
-          const expression =
-            keyAttribute.initializer.expression;
-
-          if (expression === undefined) {
-            continue;
-          }
-
-          if (
-            referencesIdentifier(
-              expression,
-              indexParameter,
-              context.typeChecker,
-            )
-          ) {
-            diagnostics.push(
-              createDiagnostic(
-                context.document.filePath,
-                keyAttribute,
-              ),
+            visitExpression(
+              statement.expression,
             );
           }
+
+          return;
         }
 
-        return;
+        if (ts.isVariableStatement(statement)) {
+          for (
+            const declaration of
+            statement.declarationList.declarations
+          ) {
+            if (
+              declaration.initializer !==
+              undefined
+            ) {
+              visitExpression(
+                declaration.initializer,
+              );
+            }
+          }
+
+          return;
+        }
+
+        if (ts.isBlock(statement)) {
+          for (
+            const child of
+            statement.statements
+          ) {
+            visitStatement(child);
+          }
+
+          return;
+        }
+
+        if (ts.isIfStatement(statement)) {
+          visitStatement(
+            statement.thenStatement,
+          );
+
+          if (
+            statement.elseStatement !==
+            undefined
+          ) {
+            visitStatement(
+              statement.elseStatement,
+            );
+          }
+
+          return;
+        }
+
+        if (ts.isTryStatement(statement)) {
+          visitStatement(
+            statement.tryBlock,
+          );
+
+          if (
+            statement.catchClause !==
+            undefined
+          ) {
+            visitStatement(
+              statement.catchClause.block,
+            );
+          }
+
+          if (
+            statement.finallyBlock !==
+            undefined
+          ) {
+            visitStatement(
+              statement.finallyBlock,
+            );
+          }
+
+          return;
+        }
+
+        if (ts.isSwitchStatement(statement)) {
+          for (
+            const clause of
+            statement.caseBlock.clauses
+          ) {
+            for (
+              const child of
+              clause.statements
+            ) {
+              visitStatement(child);
+            }
+          }
+        }
       }
 
-      visit(context.sourceFile);
+      function visitExpression(
+        expression: ts.Expression,
+      ): void {
+        if (
+          ts.isArrowFunction(expression) ||
+          ts.isFunctionExpression(expression)
+        ) {
+          visitFunction(expression);
+          return;
+        }
 
-      return diagnostics;
-    },
-  };
+        ts.forEachChild(
+          expression,
+          (child) => {
+            if (ts.isExpression(child)) {
+              visitExpression(child);
+            }
+          },
+        );
+      }
+
+      visitFunction(callback);
+
+      return results;
+    }
+
+    export const noArrayIndexKeyRule:
+      SemanticRule = {
+      meta: {
+        id: "react/no-array-index-key",
+
+        name: "No array index key",
+
+        description:
+          "Detects React keys that use the array index from a map callback.",
+
+        category: "react",
+
+        kind: "semantic",
+
+        defaultSeverity: "warning",
+
+        recommended: true,
+
+        fixable: false,
+      },
+
+      analyze(context) {
+        const diagnostics: Diagnostic[] = [];
+
+        function visit(node: ts.Node): void {
+          if (!isMapCall(node)) {
+            ts.forEachChild(
+              node,
+              visit,
+            );
+
+            return;
+          }
+
+          const callback =
+            getMapCallback(node);
+
+          if (callback === undefined) {
+            return;
+          }
+
+          const indexParameter =
+            getIndexParameter(callback);
+
+          if (indexParameter === undefined) {
+            return;
+          }
+
+          for (
+            const jsxNode of
+            getReturnedJsxIncludingNestedClosures(
+              callback,
+            )
+          ) {
+            const keyAttribute =
+              getKeyAttribute(jsxNode);
+
+            if (keyAttribute === undefined) {
+              continue;
+            }
+
+            if (
+              keyAttribute.initializer ===
+              undefined
+            ) {
+              continue;
+            }
+
+            if (
+              !ts.isJsxExpression(
+                keyAttribute.initializer,
+              )
+            ) {
+              continue;
+            }
+
+            const expression =
+              keyAttribute.initializer.expression;
+
+            if (expression === undefined) {
+              continue;
+            }
+
+            if (
+              referencesIdentifier(
+                expression,
+                indexParameter,
+                context.typeChecker,
+              )
+            ) {
+              diagnostics.push(
+                createDiagnostic(
+                  context.document.filePath,
+                  keyAttribute,
+                ),
+              );
+            }
+          }
+
+          return;
+        }
+
+        visit(context.sourceFile);
+
+        return diagnostics;
+      },
+    };

@@ -1,5 +1,5 @@
 import test from "node:test";
-import assert from "node:assert/strict";
+import assert from "node:assert";
 import {
   analyzeRule,
 } from "./test-utils.js";
@@ -158,7 +158,7 @@ test(
 
     assert.equal(diagnostics.length, 1);
 
-    const diagnostic = diagnostics[0];
+    const diagnostic = diagnostics[0]!;
 
     if (diagnostic === undefined) {
       throw new Error(
@@ -178,7 +178,7 @@ test(
     );
 
     assert.equal(
-      diagnostic.location.start.column,
+      diagnostic!.location!.start.column,
       5,
     );
   },
@@ -248,19 +248,21 @@ test(
 
     assert.equal(diagnostics.length, 1);
 
-    const diagnostic = diagnostics[0];
+    const diagnostic = diagnostics[0]!;
 
-    assert.ok(diagnostic);
+    if (!diagnostic) {
+      throw new Error("Expected a diagnostic");
+    }
     assert.equal(
-      diagnostic.ruleId,
+      diagnostic!.ruleId,
       "react/no-array-index-key",
     );
     assert.equal(
-      diagnostic.severity,
+      diagnostic!.severity,
       "warning",
     );
     assert.equal(
-      diagnostic.category,
+      diagnostic!.category,
       "react",
     );
   },
@@ -371,18 +373,19 @@ test(
 
     assert.equal(diagnostics.length, 1);
 
-    const diagnostic = diagnostics[0];
+    const diagnostic = diagnostics[0]!;
 
     assert.ok(diagnostic);
-    assert.ok(diagnostic.location);
+    const location = diagnostic.location;
+    assert.ok(location);
 
     assert.equal(
-      diagnostic.location.start.line,
+      location!.start.line,
       3,
     );
 
     assert.equal(
-      diagnostic.location.start.column,
+      location!.start.column,
       10,
     );
   },
@@ -406,19 +409,19 @@ test(
 
     assert.equal(diagnostics.length, 1);
 
-    const diagnostic = diagnostics[0];
+    const diagnostic = diagnostics[0]!;
 
     assert.ok(diagnostic);
     assert.equal(
-      diagnostic.ruleId,
+      diagnostic!.ruleId,
       "react/no-useless-fragment",
     );
     assert.equal(
-      diagnostic.severity,
+      diagnostic!.severity,
       "warning",
     );
     assert.equal(
-      diagnostic.category,
+      diagnostic!.category,
       "react",
     );
   },
@@ -735,18 +738,20 @@ test(
 
     assert.equal(diagnostics.length, 1);
 
-    const diagnostic = diagnostics[0];
+    const diagnostic = diagnostics[0]!;
 
-    assert.ok(diagnostic);
+    if (!diagnostic) {
+      throw new Error("Expected a diagnostic");
+    }
     assert.ok(diagnostic.location);
 
     assert.equal(
-      diagnostic.location.start.line,
+      diagnostic.location!.start.line,
       3,
     );
 
     assert.equal(
-      diagnostic.location.start.column,
+      diagnostic.location!.start.column,
       5,
     );
   },
@@ -849,8 +854,13 @@ test(
 
     const diagnostic = diagnostics[0];
 
-    assert.ok(diagnostic);
-    assert.ok(diagnostic.location);
+    if (!diagnostic) {
+      throw new Error("Expected a diagnostic");
+    }
+
+    if (!diagnostic.location) {
+      throw new Error("Expected the diagnostic to have a location");
+    }
 
     assert.equal(
       diagnostic.location.start.line,
@@ -2960,5 +2970,25 @@ test(
     );
 
     assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key ignores alias reassigned to stable key",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        const items = data.map((item, index) => {
+          let itemKey = index;
+
+          itemKey = item.id;
+
+          return <div key={itemKey} />;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
   },
 );
