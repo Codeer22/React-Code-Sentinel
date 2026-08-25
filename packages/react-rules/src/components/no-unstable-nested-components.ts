@@ -125,6 +125,123 @@ function findContainingComponent(
   return undefined;
 }
 
+function getFunctionIdentifier(
+  node:
+    | ts.FunctionDeclaration
+    | ts.FunctionExpression
+    | ts.ArrowFunction,
+): ts.Identifier | undefined {
+  if (ts.isFunctionDeclaration(node)) {
+    return node.name;
+  }
+
+  if (
+    ts.isVariableDeclaration(node.parent) &&
+    ts.isIdentifier(node.parent.name)
+  ) {
+    return node.parent.name;
+  }
+
+  if (
+    ts.isPropertyAssignment(node.parent) &&
+    ts.isIdentifier(node.parent.name)
+  ) {
+    return node.parent.name;
+  }
+
+  return undefined;
+}
+
+function isComponentJsxTag(
+  tagName: ts.JsxTagNameExpression,
+  componentName: string,
+  componentSymbol:
+    | ts.Symbol
+    | undefined,
+  checker: ts.TypeChecker,
+): boolean {
+  if (!ts.isIdentifier(tagName)) {
+    return false;
+  }
+
+  if (tagName.text !== componentName) {
+    return false;
+  }
+
+  if (componentSymbol === undefined) {
+    return true;
+  }
+
+  return (
+    checker.getSymbolAtLocation(tagName) ===
+    componentSymbol
+  );
+}
+
+function isUsedAsJsxComponent(
+  scope: ts.Node,
+  component:
+    NonNullable<
+      ReturnType<typeof getReactComponentInfo>
+    >,
+  checker: ts.TypeChecker,
+): boolean {
+  const identifier =
+    getFunctionIdentifier(
+      component.functionNode,
+    );
+
+  const componentSymbol =
+    identifier === undefined
+      ? undefined
+      : checker.getSymbolAtLocation(
+          identifier,
+        );
+
+  let found = false;
+
+  function visit(node: ts.Node): void {
+    if (found) {
+      return;
+    }
+
+    if (
+      ts.isJsxSelfClosingElement(node) &&
+      isComponentJsxTag(
+        node.tagName,
+        component.name,
+        componentSymbol,
+        checker,
+      )
+    ) {
+      found = true;
+      return;
+    }
+
+    if (
+      ts.isJsxOpeningElement(node) &&
+      isComponentJsxTag(
+        node.tagName,
+        component.name,
+        componentSymbol,
+        checker,
+      )
+    ) {
+      found = true;
+      return;
+    }
+
+    ts.forEachChild(
+      node,
+      visit,
+    );
+  }
+
+  visit(scope);
+
+  return found;
+}
+
 export const noUnstableNestedComponentsRule:
   SemanticRule = {
     meta: {
@@ -189,7 +306,12 @@ export const noUnstableNestedComponentsRule:
 
           if (
             parentComponent !==
-              undefined
+              undefined &&
+            isUsedAsJsxComponent(
+              parentComponent.functionNode,
+              component,
+              context.typeChecker,
+            )
           ) {
             diagnostics.push(
               createDiagnostic(

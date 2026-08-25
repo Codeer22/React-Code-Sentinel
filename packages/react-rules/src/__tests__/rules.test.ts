@@ -1822,7 +1822,7 @@ test(
 );
 
 test(
-  "no-unstable-nested-components currently treats uppercase JSX-returning helper as component",
+  "no-unstable-nested-components ignores uppercase JSX helper called inside JSX expression",
   () => {
     const diagnostics = analyzeRule(
       noUnstableNestedComponentsRule,
@@ -1832,12 +1832,12 @@ test(
             return <div>Hello</div>;
           }
 
-          return RenderThing();
+          return <section>{RenderThing()}</section>;
         }
       `,
     );
 
-    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics.length, 0);
   },
 );
 
@@ -3056,5 +3056,25 @@ test(
     );
 
     assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unstable-nested-components ignores uppercase JSX helper called as function",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function RenderThing() {
+            return <div>Hello</div>;
+          }
+
+          return RenderThing();
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
   },
 );
