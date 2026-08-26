@@ -106,6 +106,12 @@ function isMutationOperator(
 
     kind ===
       ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+    || kind ===
+      ts.SyntaxKind.AmpersandAmpersandEqualsToken
+    || kind ===
+      ts.SyntaxKind.BarBarEqualsToken
+    || kind ===
+      ts.SyntaxKind.QuestionQuestionEqualsToken
   );
 }
 
@@ -144,6 +150,10 @@ function isThisStateProperty(
     return false;
   }
 
+  if (!isReactComponentClass(node)) {
+    return false;
+  }
+
   const symbol =
     typeChecker.getSymbolAtLocation(
       node.name,
@@ -164,6 +174,48 @@ function isThisStateProperty(
         ts.SymbolFlags.SetAccessor
       )) !== 0
   );
+}
+
+function isReactComponentClass(
+  node: ts.Node,
+): boolean {
+  let current:
+    | ts.Node
+    | undefined =
+    node.parent;
+
+  while (
+    current !== undefined &&
+    !ts.isClassLike(current)
+  ) {
+    current = current.parent;
+  }
+
+  if (
+    current === undefined ||
+    !ts.isClassLike(current)
+  ) {
+    return false;
+  }
+
+  return current.heritageClauses?.some(
+    (clause) =>
+      clause.token ===
+        ts.SyntaxKind.ExtendsKeyword &&
+      clause.types.some(
+        (type) => {
+          const text =
+            type.expression.getText();
+
+          return (
+            text === "Component" ||
+            text === "PureComponent" ||
+            text === "React.Component" ||
+            text === "React.PureComponent"
+          );
+        },
+      ),
+  ) ?? false;
 }
 
 /**
@@ -608,6 +660,23 @@ export const noDirectMutationStateRule:
                 ),
               );
             }
+
+            return;
+          }
+
+          if (
+            ts.isDeleteExpression(node) &&
+            isStateMutationTarget(
+              node.expression,
+              typeChecker,
+            )
+          ) {
+            diagnostics.push(
+              createDiagnostic(
+                context.document.filePath,
+                node.expression,
+              ),
+            );
 
             return;
           }

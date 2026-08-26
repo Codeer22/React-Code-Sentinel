@@ -90,6 +90,12 @@ function isMutationOperator(
       ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
     kind ===
       ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
+    || kind ===
+      ts.SyntaxKind.AmpersandAmpersandEqualsToken
+    || kind ===
+      ts.SyntaxKind.BarBarEqualsToken
+    || kind ===
+      ts.SyntaxKind.QuestionQuestionEqualsToken
   );
 }
 
@@ -626,6 +632,22 @@ function analyzeMutation(
     );
 
     return;
+  }
+
+  if (
+    ts.isDeleteExpression(node) &&
+    isPropsMutationTarget(
+      node.expression,
+      propsParameter,
+      checker,
+    )
+  ) {
+    diagnostics.push(
+      createDiagnostic(
+        filePath,
+        node.expression,
+      ),
+    );
   }
 
   if (

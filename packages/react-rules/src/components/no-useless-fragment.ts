@@ -10,7 +10,7 @@ import type {
 
 function createDiagnostic(
   filePath: string,
-  node: ts.JsxFragment,
+  node: ts.JsxElement | ts.JsxFragment,
 ): Diagnostic {
   const sourceFile = node.getSourceFile();
 
@@ -67,7 +67,7 @@ function isIgnorableChild(
 }
 
 function getRenderableChildren(
-  fragment: ts.JsxFragment,
+  fragment: ts.JsxElement | ts.JsxFragment,
 ): readonly ts.JsxChild[] {
   return fragment.children.filter(
     (child) => !isIgnorableChild(child),
@@ -75,12 +75,37 @@ function getRenderableChildren(
 }
 
 function isUselessFragment(
-  fragment: ts.JsxFragment,
+  fragment: ts.JsxElement | ts.JsxFragment,
 ): boolean {
   const children =
     getRenderableChildren(fragment);
 
   return children.length === 1;
+}
+
+function isExplicitFragment(
+  node: ts.JsxElement,
+): boolean {
+  const tagName =
+    node.openingElement.tagName;
+
+  return (
+    ts.isPropertyAccessExpression(tagName) &&
+    ts.isIdentifier(tagName.expression) &&
+    tagName.expression.text === "React" &&
+    tagName.name.text === "Fragment"
+  );
+}
+
+function hasKey(
+  node: ts.JsxElement,
+): boolean {
+  return node.openingElement.attributes.properties.some(
+    (property) =>
+      ts.isJsxAttribute(property) &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === "key",
+  );
 }
 
 export const noUselessFragmentRule: AstRule = {
@@ -107,7 +132,12 @@ export const noUselessFragmentRule: AstRule = {
     const diagnostics: Diagnostic[] = [];
 
     function visit(node: ts.Node): void {
-      if (ts.isJsxFragment(node)) {
+      if (
+        ts.isJsxFragment(node) ||
+        (ts.isJsxElement(node) &&
+          isExplicitFragment(node) &&
+          !hasKey(node))
+      ) {
         if (isUselessFragment(node)) {
           diagnostics.push(
             createDiagnostic(

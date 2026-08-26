@@ -154,13 +154,35 @@ function getUnsafePropName(
     ts.isPropertyAccessExpression(
       node,
     ) &&
-    isDirectPropsAccess(
-      node,
+    isDirectPropsExpression(
+      node.expression,
       propsParameter,
       typeChecker,
     )
   ) {
     return node.name.text;
+  }
+
+  if (
+    ts.isElementAccessExpression(node) &&
+    isDirectPropsExpression(
+      node.expression,
+      propsParameter,
+      typeChecker,
+    )
+  ) {
+    const argument =
+      node.argumentExpression;
+
+    if (
+      argument !== undefined &&
+      (ts.isStringLiteral(argument) ||
+        ts.isNumericLiteral(argument))
+    ) {
+      return argument.text;
+    }
+
+    return node.getText();
   }
 
   if (
@@ -381,15 +403,15 @@ function isUnsafeType(
   );
 }
 
-function isDirectPropsAccess(
-  node: ts.PropertyAccessExpression,
+function isDirectPropsExpression(
+  expression: ts.Expression,
   propsParameter:
     ts.ParameterDeclaration,
   typeChecker:
     ts.TypeChecker,
 ): boolean {
   if (
-    !ts.isIdentifier(node.expression)
+    !ts.isIdentifier(expression)
   ) {
     return false;
   }
@@ -469,7 +491,7 @@ function isDirectPropsAccess(
 
   const accessSymbol =
     typeChecker.getSymbolAtLocation(
-      node.expression,
+      expression,
     );
 
   if (
@@ -627,6 +649,7 @@ function isDestructuredPropAccess(
         initializerSymbol,
         propsSymbol,
         typeChecker,
+        node,
       )
     ) {
       return true;
@@ -802,6 +825,7 @@ function getDestructuredPropName(
         initializerSymbol,
         propsSymbol,
         typeChecker,
+        node,
       )
     ) {
       continue;
@@ -884,7 +908,12 @@ function createDiagnostic(
   };
 }
 
-function symbolReferencesProps(initializerSymbol: ts.Symbol, propsSymbol: ts.Symbol, typeChecker: ts.TypeChecker) {
+function symbolReferencesProps(
+  initializerSymbol: ts.Symbol,
+  propsSymbol: ts.Symbol,
+  typeChecker: ts.TypeChecker,
+  referenceNode?: ts.Node,
+) {
   const visited = new Set<ts.Symbol>();
 
   function references(
@@ -928,6 +957,75 @@ function symbolReferencesProps(initializerSymbol: ts.Symbol, propsSymbol: ts.Sym
         )
       ) {
         return true;
+      }
+    }
+
+    if (referenceNode !== undefined) {
+      const referenceStart =
+        referenceNode.getStart();
+
+      let scope:
+        | ts.Node
+        | undefined =
+        referenceNode.parent;
+
+      while (
+        scope !== undefined &&
+        !ts.isFunctionLike(scope) &&
+        !ts.isSourceFile(scope)
+      ) {
+        scope = scope.parent;
+      }
+
+      let latestAssignment:
+        | ts.BinaryExpression
+        | undefined;
+
+      function visit(
+        node: ts.Node,
+      ): void {
+        if (
+          node !== scope &&
+          ts.isFunctionLike(node)
+        ) {
+          return;
+        }
+
+        if (
+          node.getStart() <
+            referenceStart &&
+          ts.isBinaryExpression(node) &&
+          node.operatorToken.kind ===
+            ts.SyntaxKind.EqualsToken &&
+          ts.isIdentifier(node.left) &&
+          typeChecker.getSymbolAtLocation(
+            node.left,
+          ) === initializerSymbol
+        ) {
+          latestAssignment = node;
+        }
+
+        ts.forEachChild(node, visit);
+      }
+
+      if (scope !== undefined) {
+        visit(scope);
+      }
+
+      if (
+        latestAssignment !== undefined
+      ) {
+        const assignmentSymbol =
+          typeChecker.getSymbolAtLocation(
+            latestAssignment.right,
+          );
+
+        if (
+          assignmentSymbol !== undefined &&
+          references(assignmentSymbol)
+        ) {
+          return true;
+        }
       }
     }
 

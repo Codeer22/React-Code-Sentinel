@@ -3329,3 +3329,25 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-unstable-nested-components reports nested component used through alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        export function Parent() {
+          function Child() {
+            return <div />;
+          }
+
+          const RenderedChild = Child;
+
+          return <RenderedChild />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

@@ -164,18 +164,74 @@ function isComponentJsxTag(
     return false;
   }
 
-  if (tagName.text !== componentName) {
-    return false;
+  if (componentSymbol === undefined) {
+    return tagName.text === componentName;
   }
 
-  if (componentSymbol === undefined) {
+  const tagSymbol =
+    checker.getSymbolAtLocation(tagName);
+
+  return (
+    tagSymbol !== undefined &&
+    symbolReferencesComponent(
+      tagSymbol,
+      componentSymbol,
+      checker,
+    )
+  );
+}
+
+function symbolReferencesComponent(
+  symbol: ts.Symbol,
+  componentSymbol: ts.Symbol,
+  checker: ts.TypeChecker,
+  visited = new Set<ts.Symbol>(),
+): boolean {
+  if (symbol === componentSymbol) {
     return true;
   }
 
-  return (
-    checker.getSymbolAtLocation(tagName) ===
-    componentSymbol
-  );
+  if (visited.has(symbol)) {
+    return false;
+  }
+
+  visited.add(symbol);
+
+  for (
+    const declaration of
+      symbol.declarations ?? []
+  ) {
+    if (
+      !ts.isVariableDeclaration(
+        declaration,
+      ) ||
+      declaration.initializer === undefined ||
+      !ts.isIdentifier(
+        declaration.initializer,
+      )
+    ) {
+      continue;
+    }
+
+    const initializerSymbol =
+      checker.getSymbolAtLocation(
+        declaration.initializer,
+      );
+
+    if (
+      initializerSymbol !== undefined &&
+      symbolReferencesComponent(
+        initializerSymbol,
+        componentSymbol,
+        checker,
+        visited,
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function isUsedAsJsxComponent(

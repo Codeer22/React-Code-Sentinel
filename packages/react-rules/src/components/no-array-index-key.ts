@@ -445,6 +445,32 @@ function getReturnedJsxIncludingNestedClosures(
           addExpression(
             expression.expression,
           );
+          return;
+        }
+
+        if (
+          ts.isConditionalExpression(
+            expression,
+          )
+        ) {
+          addExpression(expression.whenTrue);
+          addExpression(expression.whenFalse);
+          return;
+        }
+
+        if (
+          ts.isBinaryExpression(expression) &&
+          (
+            expression.operatorToken.kind ===
+              ts.SyntaxKind.AmpersandAmpersandToken ||
+            expression.operatorToken.kind ===
+              ts.SyntaxKind.BarBarToken ||
+            expression.operatorToken.kind ===
+              ts.SyntaxKind.QuestionQuestionToken
+          )
+        ) {
+          addExpression(expression.left);
+          addExpression(expression.right);
         }
       }
 
