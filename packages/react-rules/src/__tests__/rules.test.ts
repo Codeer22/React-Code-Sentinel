@@ -3245,3 +3245,23 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+
+test(
+  "no-array-index-key reports alias reassigned to index",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        const items = data.map((item, index) => {
+          let itemKey = item.id;
+
+          itemKey = index;
+
+          return <div key={itemKey} />;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
