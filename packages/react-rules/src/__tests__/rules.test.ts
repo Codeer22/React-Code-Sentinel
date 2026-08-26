@@ -3126,3 +3126,26 @@ test(
     assert.equal(diagnostics.length, 2);
   },
 );
+
+test(
+  "no-direct-mutation-props ignores reassigned props alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          let currentProps;
+
+          currentProps = props;
+          currentProps = {
+            name: "Local",
+          };
+
+          currentProps.name = "Updated";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
