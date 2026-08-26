@@ -3308,3 +3308,24 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-unsafe-prop-access reports destructured prop through alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        export function UserCard(
+          props: any,
+        ) {
+          const currentProps = props;
+          const { name } = currentProps;
+
+          return <div>{name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

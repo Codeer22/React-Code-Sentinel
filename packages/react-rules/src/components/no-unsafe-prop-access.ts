@@ -15,98 +15,98 @@ import {
 
 export const noUnsafePropAccessRule:
   SemanticRule = {
-    meta: {
-      id:
-        "react/no-unsafe-prop-access",
+  meta: {
+    id:
+      "react/no-unsafe-prop-access",
 
-      name:
-        "No unsafe prop access",
+    name:
+      "No unsafe prop access",
 
-      description:
-        "Detects React component prop accesses that resolve to any or unknown.",
+    description:
+      "Detects React component prop accesses that resolve to any or unknown.",
 
-      category:
-        "react",
+    category:
+      "react",
 
-      kind:
-        "semantic",
+    kind:
+      "semantic",
 
-      defaultSeverity:
-        "warning",
+    defaultSeverity:
+      "warning",
 
-      recommended:
-        true,
+    recommended:
+      true,
 
-      fixable:
-        false,
-    },
+    fixable:
+      false,
+  },
 
-    analyze(
-      context,
-    ): readonly Diagnostic[] {
-      const diagnostics:
-        Diagnostic[] = [];
+  analyze(
+    context,
+  ): readonly Diagnostic[] {
+    const diagnostics:
+      Diagnostic[] = [];
 
-      function visit(
-        node: ts.Node,
-      ): void {
-        const component =
-          findContainingComponent(
+    function visit(
+      node: ts.Node,
+    ): void {
+      const component =
+        findContainingComponent(
+          node,
+        );
+
+      if (
+        component !== undefined &&
+        component.propsParameter !==
+        undefined
+      ) {
+        const propertyName =
+          getUnsafePropName(
             node,
+            component.propsParameter,
+            context.typeChecker,
           );
 
         if (
-          component !== undefined &&
-          component.propsParameter !==
-            undefined
+          propertyName !== undefined
         ) {
-          const propertyName =
-            getUnsafePropName(
+          const propertyType =
+            getUnsafePropType(
               node,
               component.propsParameter,
               context.typeChecker,
             );
 
           if (
-            propertyName !== undefined
+            isUnsafeType(
+              propertyType,
+            )
           ) {
-            const propertyType =
-              getUnsafePropType(
+            diagnostics.push(
+              createDiagnostic(
+                context,
                 node,
-                component.propsParameter,
-                context.typeChecker,
-              );
-
-            if (
-              isUnsafeType(
-                propertyType,
-              )
-            ) {
-              diagnostics.push(
-                createDiagnostic(
-                  context,
-                  node,
-                  component.name,
-                  propertyName,
-                ),
-              );
-            }
+                component.name,
+                propertyName,
+              ),
+            );
           }
         }
-
-        ts.forEachChild(
-          node,
-          visit,
-        );
       }
 
-      visit(
-        context.sourceFile,
+      ts.forEachChild(
+        node,
+        visit,
       );
+    }
 
-      return diagnostics;
-    },
-  };
+    visit(
+      context.sourceFile,
+    );
+
+    return diagnostics;
+  },
+};
 
 function findContainingComponent(
   node: ts.Node,
@@ -274,17 +274,17 @@ function getUnsafePropType(
       if (
         (symbolType.flags &
           ts.TypeFlags.Any) !==
-          0 ||
+        0 ||
         (symbolType.flags &
           ts.TypeFlags.Unknown) !==
-          0
+        0
       ) {
         return symbolType;
       }
 
       for (
         const declaration
-          of symbol.declarations ?? []
+        of symbol.declarations ?? []
       ) {
         if (
           !ts.isBindingElement(
@@ -374,10 +374,10 @@ function isUnsafeType(
   return (
     (type.flags &
       ts.TypeFlags.Any) !==
-      0 ||
+    0 ||
     (type.flags &
       ts.TypeFlags.Unknown) !==
-      0
+    0
   );
 }
 
@@ -409,69 +409,63 @@ function isDirectPropsAccess(
     new Set<ts.Symbol>();
 
   function symbolReferencesProps(
-    symbol: ts.Symbol,
-  ): boolean {
+  symbol: ts.Symbol,
+  propsSymbol: ts.Symbol,
+  typeChecker: ts.TypeChecker,
+  visited = new Set<ts.Symbol>(),
+): boolean {
+  if (symbol === propsSymbol) {
+    return true;
+  }
+
+  if (visited.has(symbol)) {
+    return false;
+  }
+
+  visited.add(symbol);
+
+  for (
+    const declaration of
+      symbol.declarations ?? []
+  ) {
     if (
-      symbol === targetSymbol
+      !ts.isVariableDeclaration(
+        declaration,
+      )
+    ) {
+      continue;
+    }
+
+    const initializer =
+      declaration.initializer;
+
+    if (
+      initializer === undefined ||
+      !ts.isIdentifier(initializer)
+    ) {
+      continue;
+    }
+
+    const initializerSymbol =
+      typeChecker.getSymbolAtLocation(
+        initializer,
+      );
+
+    if (
+      initializerSymbol !== undefined &&
+      symbolReferencesProps(
+        initializerSymbol,
+        propsSymbol,
+        typeChecker,
+        visited,
+      )
     ) {
       return true;
     }
-
-    if (
-      visitedSymbols.has(symbol)
-    ) {
-      return false;
-    }
-
-    visitedSymbols.add(symbol);
-
-    for (
-      const declaration of
-      symbol.declarations ?? []
-    ) {
-      if (
-        !ts.isVariableDeclaration(
-          declaration,
-        )
-      ) {
-        continue;
-      }
-
-      const initializer =
-        declaration.initializer;
-
-      if (
-        initializer === undefined
-      ) {
-        continue;
-      }
-
-      if (
-        !ts.isIdentifier(
-          initializer,
-        )
-      ) {
-        continue;
-      }
-
-      const initializerSymbol =
-        typeChecker.getSymbolAtLocation(
-          initializer,
-        );
-
-      if (
-        initializerSymbol !==
-          undefined &&
-        symbolReferencesProps(
-          initializerSymbol,
-        )
-      ) {
-        return true;
-      }
-    }
-
-    return false;
   }
+
+  return false;
+}
 
   const accessSymbol =
     typeChecker.getSymbolAtLocation(
@@ -486,6 +480,9 @@ function isDirectPropsAccess(
 
   return symbolReferencesProps(
     accessSymbol,
+    targetSymbol,
+    typeChecker,
+    visitedSymbols,
   );
 }
 
@@ -521,7 +518,7 @@ function isDestructuredPropAccess(
   ) {
     for (
       const element
-        of propsParameter.name.elements
+      of propsParameter.name.elements
     ) {
       if (
         !ts.isBindingElement(
@@ -575,7 +572,7 @@ function isDestructuredPropAccess(
 
   for (
     const declaration
-      of nodeSymbol.declarations ?? []
+    of nodeSymbol.declarations ?? []
   ) {
     if (
       !ts.isBindingElement(
@@ -625,25 +622,14 @@ function isDestructuredPropAccess(
       );
 
     if (
-      initializerSymbol === propsSymbol
+      initializerSymbol !== undefined &&
+      symbolReferencesProps(
+        initializerSymbol,
+        propsSymbol,
+        typeChecker,
+      )
     ) {
       return true;
-    }
-
-    if (
-      initializerSymbol !== undefined
-    ) {
-      for (
-        const initializerDeclaration
-          of initializerSymbol.declarations ?? []
-      ) {
-        if (
-          initializerDeclaration ===
-          propsParameter
-        ) {
-          return true;
-        }
-      }
     }
   }
 
@@ -671,7 +657,7 @@ function getDestructuredPropName(
   ) {
     for (
       const element
-        of propsParameter.name.elements
+      of propsParameter.name.elements
     ) {
       if (
         !ts.isBindingElement(
@@ -732,7 +718,7 @@ function getDestructuredPropName(
 
   for (
     const declaration
-      of symbol.declarations ?? []
+    of symbol.declarations ?? []
   ) {
     if (
       !ts.isBindingElement(
@@ -812,7 +798,11 @@ function getDestructuredPropName(
 
     if (
       propsSymbol === undefined ||
-      initializerSymbol !== propsSymbol
+      !symbolReferencesProps(
+        initializerSymbol,
+        propsSymbol,
+        typeChecker,
+      )
     ) {
       continue;
     }
@@ -892,4 +882,59 @@ function createDiagnostic(
       },
     },
   };
+}
+
+function symbolReferencesProps(initializerSymbol: ts.Symbol, propsSymbol: ts.Symbol, typeChecker: ts.TypeChecker) {
+  const visited = new Set<ts.Symbol>();
+
+  function references(
+    symbol: ts.Symbol,
+  ): boolean {
+    if (symbol === propsSymbol) {
+      return true;
+    }
+
+    if (visited.has(symbol)) {
+      return false;
+    }
+
+    visited.add(symbol);
+
+    for (
+      const declaration
+      of symbol.declarations ?? []
+    ) {
+      if (
+        !ts.isVariableDeclaration(
+          declaration,
+        ) ||
+        declaration.initializer === undefined ||
+        !ts.isIdentifier(
+          declaration.initializer,
+        )
+      ) {
+        continue;
+      }
+
+      const referencedSymbol =
+        typeChecker.getSymbolAtLocation(
+          declaration.initializer,
+        );
+
+      if (
+        referencedSymbol !== undefined &&
+        references(
+          referencedSymbol,
+        )
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  return references(
+    initializerSymbol,
+  );
 }
