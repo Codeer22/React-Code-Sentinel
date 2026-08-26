@@ -597,6 +597,25 @@ test(
 );
 
 test(
+  "no-direct-mutation-state reports logical assignment and delete",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            this.state.count ||= 1;
+            delete this.state.unused;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
   "no-direct-mutation-state allows setState",
   () => {
     const diagnostics = analyzeRule(
@@ -979,6 +998,23 @@ test(
     );
 
     assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-props reports logical assignment and delete",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          props.name ??= "Guest";
+          delete props.unused;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
   },
 );
 
@@ -2023,6 +2059,46 @@ test(
     );
 
     assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment reports explicit React.Fragment with one child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App() {
+          return (
+            <React.Fragment>
+              <div>Hello</div>
+            </React.Fragment>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-useless-fragment ignores keyed React.Fragment with one child",
+  () => {
+    const diagnostics = analyzeRule(
+      noUselessFragmentRule,
+      `
+        export function App({ id }) {
+          return (
+            <React.Fragment key={id}>
+              <div>Hello</div>
+            </React.Fragment>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
   },
 );
 
@@ -3349,5 +3425,139 @@ test(
     );
 
     assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-unstable-nested-components ignores reassigned component alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnstableNestedComponentsRule,
+      `
+        function Other() {
+          return <div />;
+        }
+
+        export function Parent() {
+          function Child() {
+            return <div />;
+          }
+
+          let RenderedChild = Child;
+          RenderedChild = Other;
+
+          return <RenderedChild />;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-missing-key reports JSX from logical map returns",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users, show }) {
+          return users.map((user) =>
+            show && <div>{user.name}</div>
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports JSX from conditional map returns",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users, show }) {
+          return users.map((user) =>
+            show ? <div>{user.name}</div> : null
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key reports nested map index keys",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Groups({ groups }) {
+          return groups.map((group) => (
+            <section key={group.id}>
+              {group.items.map((item, index) => (
+                <div key={index}>{item.name}</div>
+              ))}
+            </section>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-array-index-key reports destructured callback index keys",
+  () => {
+    const diagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map(({ name }, index) => (
+            <div key={index}>{name}</div>
+          ));
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "key rules inspect all logical JSX return forms",
+  () => {
+    const missingKeyDiagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        items.map((item) =>
+          item.active || <Row />
+        );
+        items.map((item) =>
+          item.active ?? <Fallback />
+        );
+      `,
+    );
+    const indexKeyDiagnostics = analyzeRule(
+      noArrayIndexKeyRule,
+      `
+        items.map((item, index) =>
+          item.active || <Row key={index} />
+        );
+        items.map((item, index) =>
+          item.active ?? <Fallback key={index} />
+        );
+      `,
+    );
+
+    assert.equal(missingKeyDiagnostics.length, 2);
+    assert.equal(indexKeyDiagnostics.length, 2);
   },
 );

@@ -143,3 +143,70 @@ test(
     );
   },
 );
+
+test(
+  "reports nested memo component",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Parent() {
+          const Child = memo(() => <div />);
+
+          return <Child />;
+        }
+      `);
+
+    const diagnostics =
+      noUnstableNestedComponentsRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "reports nested component used through an object property",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Parent() {
+          const components = {
+            Child: () => <div />,
+          };
+
+          return <components.Child />;
+        }
+      `);
+
+    const diagnostics =
+      noUnstableNestedComponentsRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "reports nested function-expression component",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Parent() {
+          const Child = function () {
+            return <div />;
+          };
+
+          return <Child />;
+        }
+      `);
+
+    const diagnostics =
+      noUnstableNestedComponentsRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

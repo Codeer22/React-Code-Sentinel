@@ -160,16 +160,34 @@ function isComponentJsxTag(
     | undefined,
   checker: ts.TypeChecker,
 ): boolean {
-  if (!ts.isIdentifier(tagName)) {
+  if (
+    !ts.isIdentifier(tagName) &&
+    !ts.isPropertyAccessExpression(tagName)
+  ) {
     return false;
   }
 
   if (componentSymbol === undefined) {
-    return tagName.text === componentName;
+    return (
+      (ts.isIdentifier(tagName)
+        ? tagName.text
+        : tagName.name.text) === componentName
+    );
+  }
+
+  if (
+    ts.isPropertyAccessExpression(tagName) &&
+    tagName.name.text === componentName
+  ) {
+    return true;
   }
 
   const tagSymbol =
-    checker.getSymbolAtLocation(tagName);
+    checker.getSymbolAtLocation(
+      ts.isPropertyAccessExpression(tagName)
+        ? tagName.name
+        : tagName,
+    );
 
   return (
     tagSymbol !== undefined &&
@@ -177,6 +195,8 @@ function isComponentJsxTag(
       tagSymbol,
       componentSymbol,
       checker,
+      new Set<ts.Symbol>(),
+      tagName,
     )
   );
 }
@@ -186,6 +206,7 @@ function symbolReferencesComponent(
   componentSymbol: ts.Symbol,
   checker: ts.TypeChecker,
   visited = new Set<ts.Symbol>(),
+  referenceNode?: ts.Node,
 ): boolean {
   if (symbol === componentSymbol) {
     return true;
@@ -196,6 +217,76 @@ function symbolReferencesComponent(
   }
 
   visited.add(symbol);
+
+  if (referenceNode !== undefined) {
+    const referenceStart =
+      referenceNode.getStart();
+
+    let scope:
+      | ts.Node
+      | undefined =
+      referenceNode.parent;
+
+    while (
+      scope !== undefined &&
+      !ts.isFunctionLike(scope) &&
+      !ts.isSourceFile(scope)
+    ) {
+      scope = scope.parent;
+    }
+
+    let latestAssignment:
+      | ts.BinaryExpression
+      | undefined;
+
+    function visit(
+      node: ts.Node,
+    ): void {
+      if (
+        node !== scope &&
+        ts.isFunctionLike(node)
+      ) {
+        return;
+      }
+
+      if (
+        node.getStart() <
+          referenceStart &&
+        ts.isBinaryExpression(node) &&
+        node.operatorToken.kind ===
+          ts.SyntaxKind.EqualsToken &&
+        ts.isIdentifier(node.left) &&
+        checker.getSymbolAtLocation(node.left) ===
+          symbol
+      ) {
+        latestAssignment = node;
+      }
+
+      ts.forEachChild(node, visit);
+    }
+
+    if (scope !== undefined) {
+      visit(scope);
+    }
+
+    if (latestAssignment !== undefined) {
+      const assignmentSymbol =
+        checker.getSymbolAtLocation(
+          latestAssignment.right,
+        );
+
+      return (
+        assignmentSymbol !== undefined &&
+        symbolReferencesComponent(
+          assignmentSymbol,
+          componentSymbol,
+          checker,
+          visited,
+          referenceNode,
+        )
+      );
+    }
+  }
 
   for (
     const declaration of
@@ -225,6 +316,7 @@ function symbolReferencesComponent(
         componentSymbol,
         checker,
         visited,
+        referenceNode,
       )
     ) {
       return true;

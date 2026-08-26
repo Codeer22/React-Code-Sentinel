@@ -674,6 +674,11 @@ function getReturnedJsxIncludingNestedClosures(
             getMapCallback(node);
 
           if (callback === undefined) {
+            ts.forEachChild(
+              node,
+              visit,
+            );
+
             return;
           }
 
@@ -681,6 +686,11 @@ function getReturnedJsxIncludingNestedClosures(
             getIndexParameter(callback);
 
           if (indexParameter === undefined) {
+            ts.forEachChild(
+              node,
+              visit,
+            );
+
             return;
           }
 
@@ -734,6 +744,11 @@ function getReturnedJsxIncludingNestedClosures(
               );
             }
           }
+
+          ts.forEachChild(
+            node,
+            visit,
+          );
 
           return;
         }

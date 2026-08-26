@@ -217,3 +217,157 @@ test(
     );
   },
 );
+
+test(
+  "reports props accessed through an assignment alias",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          props: any,
+        ) {
+          let currentProps;
+          currentProps = props;
+
+          return currentProps.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "ignores props alias reassigned to a local object",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          props: any,
+        ) {
+          let currentProps;
+          currentProps = props;
+          currentProps = { name: "Local" };
+
+          return currentProps.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "reports optional chained access on any props",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          props: any,
+        ) {
+          return props.user?.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "accepts computed access with a typed index signature",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          props: Record<string, string>,
+        ) {
+          return props["name"];
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "reports property access on unknown props",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          props: unknown,
+        ) {
+          return props.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "reports nested destructured prop access",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          { user: { name } }: any,
+        ) {
+          return name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "reports access through a rest props binding",
+  () => {
+    const context =
+      createSemanticContext(`
+        function UserCard(
+          { ...rest }: any,
+        ) {
+          return rest.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);

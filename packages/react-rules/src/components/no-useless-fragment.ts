@@ -85,9 +85,17 @@ function isUselessFragment(
 
 function isExplicitFragment(
   node: ts.JsxElement,
+  fragmentNames: ReadonlySet<string>,
 ): boolean {
   const tagName =
     node.openingElement.tagName;
+
+  if (
+    ts.isIdentifier(tagName) &&
+    fragmentNames.has(tagName.text)
+  ) {
+    return true;
+  }
 
   return (
     ts.isPropertyAccessExpression(tagName) &&
@@ -95,6 +103,48 @@ function isExplicitFragment(
     tagName.expression.text === "React" &&
     tagName.name.text === "Fragment"
   );
+}
+
+function getImportedFragmentNames(
+  sourceFile: ts.SourceFile,
+): ReadonlySet<string> {
+  const names = new Set<string>();
+
+  for (
+    const statement of sourceFile.statements
+  ) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== "react"
+    ) {
+      continue;
+    }
+
+    const bindings =
+      statement.importClause?.namedBindings;
+
+    if (
+      bindings === undefined ||
+      !ts.isNamedImports(bindings)
+    ) {
+      continue;
+    }
+
+    for (
+      const element of bindings.elements
+    ) {
+      const importedName =
+        element.propertyName?.text ??
+        element.name.text;
+
+      if (importedName === "Fragment") {
+        names.add(element.name.text);
+      }
+    }
+  }
+
+  return names;
 }
 
 function hasKey(
@@ -130,12 +180,19 @@ export const noUselessFragmentRule: AstRule = {
 
   analyze(context) {
     const diagnostics: Diagnostic[] = [];
+    const fragmentNames =
+      getImportedFragmentNames(
+        context.sourceFile,
+      );
 
     function visit(node: ts.Node): void {
       if (
         ts.isJsxFragment(node) ||
         (ts.isJsxElement(node) &&
-          isExplicitFragment(node) &&
+          isExplicitFragment(
+            node,
+            fragmentNames,
+          ) &&
           !hasKey(node))
       ) {
         if (isUselessFragment(node)) {

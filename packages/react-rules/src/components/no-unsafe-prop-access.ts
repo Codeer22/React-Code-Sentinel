@@ -427,68 +427,6 @@ function isDirectPropsExpression(
     return false;
   }
 
-  const visitedSymbols =
-    new Set<ts.Symbol>();
-
-  function symbolReferencesProps(
-  symbol: ts.Symbol,
-  propsSymbol: ts.Symbol,
-  typeChecker: ts.TypeChecker,
-  visited = new Set<ts.Symbol>(),
-): boolean {
-  if (symbol === propsSymbol) {
-    return true;
-  }
-
-  if (visited.has(symbol)) {
-    return false;
-  }
-
-  visited.add(symbol);
-
-  for (
-    const declaration of
-      symbol.declarations ?? []
-  ) {
-    if (
-      !ts.isVariableDeclaration(
-        declaration,
-      )
-    ) {
-      continue;
-    }
-
-    const initializer =
-      declaration.initializer;
-
-    if (
-      initializer === undefined ||
-      !ts.isIdentifier(initializer)
-    ) {
-      continue;
-    }
-
-    const initializerSymbol =
-      typeChecker.getSymbolAtLocation(
-        initializer,
-      );
-
-    if (
-      initializerSymbol !== undefined &&
-      symbolReferencesProps(
-        initializerSymbol,
-        propsSymbol,
-        typeChecker,
-        visited,
-      )
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
   const accessSymbol =
     typeChecker.getSymbolAtLocation(
       expression,
@@ -504,8 +442,98 @@ function isDirectPropsExpression(
     accessSymbol,
     targetSymbol,
     typeChecker,
-    visitedSymbols,
+    expression,
   );
+}
+
+function bindingPatternContainsSymbol(
+  pattern: ts.BindingPattern,
+  targetSymbol: ts.Symbol,
+  typeChecker: ts.TypeChecker,
+): boolean {
+  for (const element of pattern.elements) {
+    if (!ts.isBindingElement(element)) {
+      continue;
+    }
+
+    if (ts.isIdentifier(element.name)) {
+      if (
+        typeChecker.getSymbolAtLocation(
+          element.name,
+        ) === targetSymbol
+      ) {
+        return true;
+      }
+
+      continue;
+    }
+
+    if (
+      bindingPatternContainsSymbol(
+        element.name,
+        targetSymbol,
+        typeChecker,
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getBindingPropertyName(
+  pattern: ts.BindingPattern,
+  node: ts.Identifier,
+  typeChecker: ts.TypeChecker,
+): string | undefined {
+  for (const element of pattern.elements) {
+    if (!ts.isBindingElement(element)) {
+      continue;
+    }
+
+    if (ts.isIdentifier(element.name)) {
+      if (element.name === node) {
+        continue;
+      }
+
+      const bindingSymbol =
+        typeChecker.getSymbolAtLocation(
+          element.name,
+        );
+
+      if (
+        element.name === node ||
+        (bindingSymbol !== undefined &&
+          bindingSymbol ===
+            typeChecker.getSymbolAtLocation(node))
+      ) {
+        if (
+          element.propertyName !== undefined &&
+          ts.isIdentifier(element.propertyName)
+        ) {
+          return element.propertyName.text;
+        }
+
+        return element.name.text;
+      }
+
+      continue;
+    }
+
+    const nestedName =
+      getBindingPropertyName(
+        element.name,
+        node,
+        typeChecker,
+      );
+
+    if (nestedName !== undefined) {
+      return nestedName;
+    }
+  }
+
+  return undefined;
 }
 
 function isDestructuredPropAccess(
@@ -538,31 +566,11 @@ function isDestructuredPropAccess(
       propsParameter.name,
     )
   ) {
-    for (
-      const element
-      of propsParameter.name.elements
-    ) {
-      if (
-        !ts.isBindingElement(
-          element,
-        )
-      ) {
-        continue;
-      }
-
-      const bindingSymbol =
-        typeChecker.getSymbolAtLocation(
-          element.name,
-        );
-
-      if (
-        bindingSymbol === nodeSymbol
-      ) {
-        return true;
-      }
-    }
-
-    return false;
+    return bindingPatternContainsSymbol(
+      propsParameter.name,
+      nodeSymbol,
+      typeChecker,
+    );
   }
 
   /*
@@ -678,43 +686,11 @@ function getDestructuredPropName(
       propsParameter.name,
     )
   ) {
-    for (
-      const element
-      of propsParameter.name.elements
-    ) {
-      if (
-        !ts.isBindingElement(
-          element,
-        )
-      ) {
-        continue;
-      }
-
-      /*
-       * Only match the actual binding
-       * declaration. Usage references are
-       * separate AST nodes.
-       */
-      if (
-        element.name === node
-      ) {
-        const propertyName =
-          element.propertyName;
-
-        if (
-          propertyName !== undefined &&
-          ts.isIdentifier(
-            propertyName,
-          )
-        ) {
-          return propertyName.text;
-        }
-
-        return node.text;
-      }
-    }
-
-    return undefined;
+    return getBindingPropertyName(
+      propsParameter.name,
+      node,
+      typeChecker,
+    );
   }
 
   /*
