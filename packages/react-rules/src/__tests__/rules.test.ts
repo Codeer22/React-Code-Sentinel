@@ -3174,3 +3174,74 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-missing-key reports JSX local variable reassigned before return",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        const items = data.map((item) => {
+          let element = <div />;
+
+          element = <span />;
+
+          return element;
+        });
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports JSX returned through reassigned local alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            let element = <div>{user.name}</div>;
+
+            let current = element;
+            current = <span>{user.email}</span>;
+
+            return current;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-missing-key reports all JSX values from conditional local alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noMissingKeyRule,
+      `
+        export function Users({ users }) {
+          return users.map((user) => {
+            let element;
+
+            if (user.active) {
+              element = <div>{user.name}</div>;
+            } else {
+              element = <span>{user.email}</span>;
+            }
+
+            const current = element;
+
+            return current;
+          });
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
