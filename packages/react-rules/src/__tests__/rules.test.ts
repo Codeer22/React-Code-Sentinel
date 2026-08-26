@@ -3149,3 +3149,28 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-direct-mutation-state ignores reassigned state alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          increment() {
+            let currentState;
+
+            currentState = this.state;
+            currentState = {
+              count: 0,
+            };
+
+            currentState.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
