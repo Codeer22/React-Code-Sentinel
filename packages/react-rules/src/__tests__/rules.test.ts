@@ -3265,3 +3265,23 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-dangerous-html ignores namespaced JSX attributes",
+  () => {
+    const diagnostics = analyzeRule(
+      noDangerousHtmlRule,
+      `
+        export function App({ html }) {
+          return (
+            <div
+              custom:dangerouslySetInnerHTML={html}
+            />
+          );
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
