@@ -3285,3 +3285,26 @@ test(
     assert.equal(diagnostics.length, 0);
   },
 );
+
+test(
+  "no-unsafe-prop-access ignores reassigned props alias",
+  () => {
+    const diagnostics = analyzeRule(
+      noUnsafePropAccessRule,
+      `
+        function UserCard(props: any) {
+          let currentProps;
+
+          currentProps = props;
+          currentProps = {
+            name: "Local",
+          };
+
+          return <div>{currentProps.name}</div>;
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
