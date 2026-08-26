@@ -52,6 +52,7 @@ function createDiagnostic(
       start: {
         line:
           start.line + 1,
+
         column:
           start.character + 1,
       },
@@ -59,6 +60,7 @@ function createDiagnostic(
       end: {
         line:
           end.line + 1,
+
         column:
           end.character + 1,
       },
@@ -112,8 +114,12 @@ function collectBindingNames(
   }
 
   if (ts.isObjectBindingPattern(name)) {
-    for (const element of name.elements) {
-      if (!ts.isBindingElement(element)) {
+    for (
+      const element of name.elements
+    ) {
+      if (
+        !ts.isBindingElement(element)
+      ) {
         continue;
       }
 
@@ -127,8 +133,12 @@ function collectBindingNames(
   }
 
   if (ts.isArrayBindingPattern(name)) {
-    for (const element of name.elements) {
-      if (!ts.isBindingElement(element)) {
+    for (
+      const element of name.elements
+    ) {
+      if (
+        !ts.isBindingElement(element)
+      ) {
         continue;
       }
 
@@ -172,7 +182,9 @@ function isPropsBinding(
       propsParameter,
     );
 
-  if (!propsNames.has(identifier.text)) {
+  if (
+    !propsNames.has(identifier.text)
+  ) {
     return false;
   }
 
@@ -228,8 +240,12 @@ function findBindingIdentifier(
     ts.isObjectBindingPattern(name) ||
     ts.isArrayBindingPattern(name)
   ) {
-    for (const element of name.elements) {
-      if (!ts.isBindingElement(element)) {
+    for (
+      const element of name.elements
+    ) {
+      if (
+        !ts.isBindingElement(element)
+      ) {
         continue;
       }
 
@@ -239,7 +255,9 @@ function findBindingIdentifier(
           targetName,
         );
 
-      if (result !== undefined) {
+      if (
+        result !== undefined
+      ) {
         return result;
       }
     }
@@ -252,6 +270,7 @@ function isPropsMutationTarget(
   node: ts.Node,
   propsParameter: ts.ParameterDeclaration,
   checker: ts.TypeChecker,
+  referenceNode: ts.Node = node,
 ): boolean {
   if (
     ts.isPropertyAccessExpression(node)
@@ -260,6 +279,7 @@ function isPropsMutationTarget(
       node.expression,
       propsParameter,
       checker,
+      referenceNode,
     );
   }
 
@@ -270,6 +290,7 @@ function isPropsMutationTarget(
       node.expression,
       propsParameter,
       checker,
+      referenceNode,
     );
   }
 
@@ -290,7 +311,9 @@ function isPropsMutationTarget(
   const targetSymbol =
     checker.getSymbolAtLocation(node);
 
-  if (targetSymbol === undefined) {
+  if (
+    targetSymbol === undefined
+  ) {
     return false;
   }
 
@@ -299,6 +322,7 @@ function isPropsMutationTarget(
 
   function symbolReferencesProps(
     symbol: ts.Symbol,
+    useNode: ts.Node,
   ): boolean {
     if (
       visitedSymbols.has(symbol)
@@ -310,7 +334,7 @@ function isPropsMutationTarget(
 
     for (
       const declaration of
-      symbol.declarations ?? []
+        symbol.declarations ?? []
     ) {
       if (
         ts.isVariableDeclaration(
@@ -319,7 +343,7 @@ function isPropsMutationTarget(
       ) {
         if (
           declaration.initializer !==
-          undefined &&
+            undefined &&
           isPropsMutationTarget(
             declaration.initializer,
             propsParameter,
@@ -350,7 +374,7 @@ function isPropsMutationTarget(
 
         if (
           variableDeclaration.initializer !==
-          undefined &&
+            undefined &&
           isPropsMutationTarget(
             variableDeclaration.initializer,
             propsParameter,
@@ -363,14 +387,28 @@ function isPropsMutationTarget(
     }
 
     /*
-     * Assignment alias:
+     * Assignment aliases are resolved using
+     * the latest assignment before the
+     * reference.
      *
-     * let currentProps;
-     * currentProps = props;
+     * Example:
      *
-     * The assignment is used only to establish
-     * the alias. analyzeMutation() prevents the
-     * assignment itself from becoming a diagnostic.
+     *   let currentProps;
+     *
+     *   currentProps = props;
+     *   currentProps.name = "Updated";
+     *
+     * The first assignment makes currentProps
+     * an alias of props.
+     *
+     * If the variable is subsequently reassigned:
+     *
+     *   currentProps = {
+     *     name: "Local",
+     *   };
+     *
+     * then the alias is broken from that point
+     * onward.
      */
     let scope:
       | ts.Node
@@ -391,19 +429,22 @@ function isPropsMutationTarget(
       return false;
     }
 
-    let found = false;
+    let latestAssignment:
+      | ts.BinaryExpression
+      | undefined;
 
     function visit(
       current: ts.Node,
     ): void {
-      if (found) {
+      if (
+        current.getStart() >=
+        useNode.getStart()
+      ) {
         return;
       }
 
       if (
-        ts.isBinaryExpression(
-          current,
-        ) &&
+        ts.isBinaryExpression(current) &&
         current.operatorToken.kind ===
           ts.SyntaxKind.EqualsToken &&
         ts.isIdentifier(
@@ -416,15 +457,10 @@ function isPropsMutationTarget(
           );
 
         if (
-          leftSymbol === symbol &&
-          isPropsMutationTarget(
-            current.right,
-            propsParameter,
-            checker,
-          )
+          leftSymbol === symbol
         ) {
-          found = true;
-          return;
+          latestAssignment =
+            current;
         }
       }
 
@@ -436,11 +472,24 @@ function isPropsMutationTarget(
 
     visit(scope);
 
-    return found;
+    if (
+      latestAssignment !==
+      undefined
+    ) {
+      return isPropsMutationTarget(
+        latestAssignment.right,
+        propsParameter,
+        checker,
+        latestAssignment,
+      );
+    }
+
+    return false;
   }
 
   return symbolReferencesProps(
     targetSymbol,
+    referenceNode,
   );
 }
 
@@ -458,23 +507,68 @@ function analyzeMutation(
     )
   ) {
     /*
-     * Do not report:
+     * A plain identifier assignment is
+     * reassignment, not mutation of the
+     * referenced object.
      *
-     * let currentProps;
-     * currentProps = props;
+     * Example:
      *
-     * This assignment establishes an alias.
+     *   let currentProps;
+     *   currentProps = props;
+     *   currentProps = {
+     *     name: "Local",
+     *   };
+     *
+     * The first assignment establishes an alias.
+     * The second assignment breaks that alias.
+     * Neither assignment mutates props.
      */
     if (
       node.operatorToken.kind ===
         ts.SyntaxKind.EqualsToken &&
-      ts.isIdentifier(node.left) &&
-      isPropsMutationTarget(
-        node.right,
-        propsParameter,
-        checker,
-      )
+      ts.isIdentifier(node.left)
     ) {
+      /*
+       * Assignment from props establishes
+       * an alias. Do not report it.
+       */
+      if (
+        isPropsMutationTarget(
+          node.right,
+          propsParameter,
+          checker,
+        )
+      ) {
+        return;
+      }
+
+      /*
+       * Direct reassignment of the actual
+       * props parameter is still a mutation.
+       *
+       * Example:
+       *
+       *   props = nextProps;
+       */
+      if (
+        isPropsBinding(
+          node.left,
+          propsParameter,
+          checker,
+        )
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            filePath,
+            node.left,
+          ),
+        );
+      }
+
+      /*
+       * Local identifier reassignment is
+       * not a props mutation.
+       */
       return;
     }
 
@@ -654,7 +748,7 @@ export const noDirectMutationPropsRule:
 
         ts.forEachChild(
           functionNode.body ??
-          functionNode,
+            functionNode,
           visit,
         );
       }
