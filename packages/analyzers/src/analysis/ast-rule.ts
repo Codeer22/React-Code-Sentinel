@@ -1,17 +1,14 @@
 import type {
   Diagnostic,
-  DiagnosticCategory,
-} from "@react-doctor/core";
+  RuleMetadata,
+} from "@react-code-sentinel/core";
 
 import type {
   AstAnalysisContext,
 } from "./ast-context.js";
 
 export interface AstRule {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly category: DiagnosticCategory;
+  readonly meta: RuleMetadata;
 
   analyze(
     context: AstAnalysisContext,

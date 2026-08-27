@@ -42,3 +42,25 @@ export type {
   ProjectAnalysisOptions,
   ProjectAnalysisResult,
 } from "./project/project-analyzer.js";
+
+
+export {
+  createSemanticAnalysisContext,
+} from "./analysis/create-semantic-context.js";
+
+export type {
+  SemanticAnalysisContext,
+} from "./analysis/semantic-context.js";
+export type {
+  SemanticRule,
+} from "./analysis/semantic-rule.js";
+export {
+  createTypeScriptProgram,
+} from "./project/program-builder.js";
+
+export type {
+  ProgramBuildOptions,
+} from "./project/program-builder.js";
+export type {
+  AnalyzerRule,
+} from "./analysis/analyzer-rule.js";

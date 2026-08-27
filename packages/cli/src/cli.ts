@@ -43,13 +43,14 @@ try {
           categories: options.categories,
         },
         format: options.format,
+        all: options.all,
       });
 
     process.exitCode = exitCode;
   }
 } catch (error) {
   console.error(
-    "React Doctor failed.",
+    "React Code Sentinel failed.",
   );
 
   if (error instanceof Error) {

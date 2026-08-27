@@ -1,10 +1,13 @@
 {
-  "name": "@react-doctor/core",
+  "name": "@react-code-sentinel/core",
   "version": "0.1.0",
-  "description": "Core analysis engine and shared types for React Doctor.",
+  "description": "Core analysis engine and shared types for React Code Sentinel.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,7 +17,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
+    "test": "tsc -p tsconfig.test.json && node ../../scripts/run-tests.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0"

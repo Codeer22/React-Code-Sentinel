@@ -17,3 +17,4 @@ export interface Rule {
 
   analyze(context: RuleContext): readonly Diagnostic[];
 }
+

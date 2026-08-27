@@ -30,7 +30,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-discovery-",
+          "react-code-sentinel-discovery-",
         ),
       );
 
@@ -92,13 +92,13 @@ test(
 );
 
 test(
-  "ignores React Doctor config files",
+  "ignores React Code Sentinel config files",
   async () => {
     const directory =
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-discovery-",
+          "react-code-sentinel-discovery-",
         ),
       );
 
@@ -112,7 +112,7 @@ test(
       await writeFile(
         join(
           directory,
-          "react-doctor.config.js",
+          "react-code-sentinel.config.js",
         ),
         "export default {};",
         "utf8",
@@ -121,7 +121,7 @@ test(
       await writeFile(
         join(
           directory,
-          "react-doctor.config.mjs",
+          "react-code-sentinel.config.mjs",
         ),
         "export default {};",
         "utf8",
@@ -155,7 +155,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-discovery-",
+          "react-code-sentinel-discovery-",
         ),
       );
 
@@ -213,3 +213,4 @@ test(
     }
   },
 );
+

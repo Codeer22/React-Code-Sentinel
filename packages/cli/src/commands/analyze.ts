@@ -4,19 +4,20 @@ import {
 
 import {
   analyzeProject,
-} from "@react-doctor/analyzers";
+} from "@react-code-sentinel/analyzers";
 
 import {
   selectRules,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   RuleSelectionOptions,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import {
   reactRules,
-} from "@react-doctor/react-rules";
+  recommendedReactRules,
+} from "@react-code-sentinel/react-rules";
 
 import {
   loadConfig,
@@ -38,6 +39,7 @@ export interface AnalyzeCommandOptions {
   readonly directory: string;
   readonly selection?: RuleSelectionOptions;
   readonly format?: OutputFormat;
+  readonly all?: boolean;
 }
 
 export async function analyzeCommand(
@@ -52,8 +54,13 @@ export async function analyzeCommand(
       directory: rootDirectory,
     });
 
+  const availableRules =
+    options.all === true
+      ? reactRules
+      : recommendedReactRules;
+
   const selectedRules = selectRules(
-    reactRules,
+    availableRules,
     options.selection,
   );
 

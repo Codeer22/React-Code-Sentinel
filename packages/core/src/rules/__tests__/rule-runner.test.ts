@@ -1,42 +1,25 @@
-import {
-  strict as assert,
-} from "node:assert";
-
 import test from "node:test";
+
+import assert from "node:assert/strict";
 
 import {
   runRules,
 } from "../rule-runner.js";
 
 import type {
+  AnalysisContext,
+} from "../../analysis/context.js";
+
+import type {
   Rule,
-} from "../../types/rule.js";
-
-const rule: Rule = {
-  id: "test/example",
-  name: "Example Rule",
-  description: "Example rule for testing.",
-  category: "correctness",
-
-  analyze() {
-    return [
-      {
-        ruleId: "test/example",
-        severity: "warning",
-        category: "correctness",
-        message: "Example diagnostic.",
-        filePath: "App.tsx",
-      },
-    ];
-  },
-};
+} from "../rule-types.js";
 
 function createContext(
   rules?: Record<
     string,
-    "off" | "info" | "warning" | "error"
+    "off" | "warning" | "error" | "info"
   >,
-) {
+): AnalysisContext {
   return {
     document: {
       filePath: "App.tsx",
@@ -58,6 +41,39 @@ function createContext(
     diagnostics: [],
   };
 }
+
+const rule: Rule = {
+  meta: {
+    id: "test/example",
+    name: "Example rule",
+    description: "Example rule for testing.",
+    category: "react",
+    kind: "semantic",
+    defaultSeverity: "warning",
+  },
+
+  analyze() {
+    return [
+      {
+        ruleId: "test/example",
+        severity: "warning",
+        category: "react",
+        message: "Example diagnostic",
+        filePath: "App.tsx",
+        location: {
+          start: {
+            line: 1,
+            column: 1,
+          },
+          end: {
+            line: 1,
+            column: 2,
+          },
+        },
+      },
+    ];
+  },
+};
 
 test(
   "runs rule with default severity",

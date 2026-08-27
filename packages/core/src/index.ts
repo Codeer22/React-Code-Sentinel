@@ -9,7 +9,9 @@ export type {
 export type {
   Rule,
   RuleContext,
-} from "./types/rule.js";
+  RuleKind,
+  RuleMetadata,
+} from "./rules/rule-types.js";
 
 export type {
   DoctorConfig,

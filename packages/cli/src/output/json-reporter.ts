@@ -1,6 +1,6 @@
 import type {
   Diagnostic,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export interface JsonReport {
   readonly filesAnalyzed: number;
@@ -18,3 +18,4 @@ export function printJsonReport(
     ),
   );
 }
+

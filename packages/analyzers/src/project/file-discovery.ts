@@ -27,10 +27,10 @@ const DEFAULT_IGNORED_DIRECTORIES = new Set([
 ]);
 
 const DEFAULT_IGNORED_FILES = new Set([
-  "react-doctor.config.js",
-  "react-doctor.config.mjs",
-  "react-doctor.config.cjs",
-  "react-doctor.config.ts",
+  "react-code-sentinel.config.js",
+  "react-code-sentinel.config.mjs",
+  "react-code-sentinel.config.cjs",
+  "react-code-sentinel.config.ts",
 ]);
 
 export interface FileDiscoveryOptions {
@@ -128,3 +128,4 @@ function getExtension(
     .slice(lastDot)
     .toLowerCase();
 }
+

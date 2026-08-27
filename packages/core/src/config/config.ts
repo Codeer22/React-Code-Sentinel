@@ -13,3 +13,4 @@ export interface DoctorConfig {
   readonly exclude?: readonly string[];
   readonly failOn?: DiagnosticSeverity;
 }
+
