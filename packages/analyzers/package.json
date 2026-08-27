@@ -17,7 +17,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
+    "test": "tsc -p tsconfig.test.json && node ../../scripts/run-tests.mjs"
   },
   "dependencies": {
     "@react-code-sentinel/core": "0.1.0",
