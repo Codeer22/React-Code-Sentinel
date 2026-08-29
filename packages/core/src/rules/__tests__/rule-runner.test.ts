@@ -133,3 +133,25 @@ test(
     );
   },
 );
+
+test(
+  "overrides rule severity to info",
+  () => {
+    const result = runRules(
+      [rule],
+      createContext({
+        "test/example": "info",
+      }),
+    );
+
+    assert.equal(
+      result.diagnostics.length,
+      1,
+    );
+
+    assert.equal(
+      result.diagnostics[0]?.severity,
+      "info",
+    );
+  },
+);
