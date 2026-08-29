@@ -373,3 +373,90 @@ test(
     }
   },
 );
+
+test(
+  "applies include, ignore, and exclude together",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel-discovery-",
+        ),
+      );
+
+    try {
+      const srcDirectory =
+        join(directory, "src");
+
+      const generatedDirectory =
+        join(directory, "generated");
+
+      await mkdir(
+        srcDirectory,
+        {
+          recursive: true,
+        },
+      );
+
+      await mkdir(
+        generatedDirectory,
+        {
+          recursive: true,
+        },
+      );
+
+      await writeFile(
+        join(srcDirectory, "App.tsx"),
+        "",
+        "utf8",
+      );
+
+      await writeFile(
+        join(srcDirectory, "Other.tsx"),
+        "",
+        "utf8",
+      );
+
+      await writeFile(
+        join(
+          generatedDirectory,
+          "Generated.tsx",
+        ),
+        "",
+        "utf8",
+      );
+
+      const files =
+        await discoverSourceFiles(
+          directory,
+          {
+            includeFiles: [
+              "src/App.tsx",
+              "src/Other.tsx",
+              "generated/Generated.tsx",
+            ],
+            ignoreFiles: [
+              "Other.tsx",
+            ],
+            ignoreDirectories: [
+              "generated",
+            ],
+          },
+        );
+
+      assert.deepEqual(
+        files,
+        ["src/App.tsx"],
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
