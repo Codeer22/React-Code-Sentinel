@@ -118,3 +118,45 @@ test(
   },
 );
 
+
+test(
+  "rejects invalid default configuration",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel.config-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(
+          directory,
+          "react-code-sentinel.config.js",
+        ),
+        "export default null;",
+        "utf8",
+      );
+
+      await assert.rejects(
+        loadConfig({
+          directory,
+        }),
+        {
+          message:
+            /Invalid configuration.*default export must be an object/,
+        },
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
