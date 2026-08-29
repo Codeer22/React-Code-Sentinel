@@ -3,6 +3,10 @@ import {
 } from "node:path";
 
 import {
+  shouldFail,
+} from "./exit-code.js";
+
+import {
   analyzeProject,
 } from "@react-code-sentinel/analyzers";
 
@@ -102,7 +106,10 @@ export async function analyzeCommand(
     );
   }
 
-  return result.diagnostics.length > 0
+  return shouldFail(
+    result.diagnostics,
+    loadedConfig.config.failOn,
+  )
     ? 1
     : 0;
 }
