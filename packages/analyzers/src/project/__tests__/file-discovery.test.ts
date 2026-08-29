@@ -214,3 +214,53 @@ test(
   },
 );
 
+test(
+  "ignores configured files",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel-discovery-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(directory, "App.tsx"),
+        "",
+        "utf8",
+      );
+
+      await writeFile(
+        join(directory, "Generated.tsx"),
+        "",
+        "utf8",
+      );
+
+      const files =
+        await discoverSourceFiles(
+          directory,
+          {
+            ignoreFiles: [
+              "Generated.tsx",
+            ],
+          },
+        );
+
+      assert.deepEqual(
+        files,
+        ["App.tsx"],
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
