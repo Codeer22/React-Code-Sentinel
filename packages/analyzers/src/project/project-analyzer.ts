@@ -59,6 +59,7 @@ export async function analyzeProject(
   const discoveryOptions: {
     ignoreDirectories?: readonly string[];
     ignoreFiles?: readonly string[];
+    includeFiles?: readonly string[];
   } = {};
 
   if (config.exclude !== undefined) {
@@ -69,6 +70,11 @@ export async function analyzeProject(
   if (config.ignore !== undefined) {
     discoveryOptions.ignoreFiles =
       config.ignore;
+  }
+
+  if (config.include !== undefined) {
+    discoveryOptions.includeFiles =
+      config.include;
   }
 
   const files = await discoverSourceFiles(

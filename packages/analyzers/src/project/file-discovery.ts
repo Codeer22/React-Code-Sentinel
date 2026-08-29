@@ -36,6 +36,7 @@ const DEFAULT_IGNORED_FILES = new Set([
 export interface FileDiscoveryOptions {
   readonly ignoreDirectories?: readonly string[];
   readonly ignoreFiles?: readonly string[];
+  readonly includeFiles?: readonly string[];
 }
 
 export async function discoverSourceFiles(
@@ -53,6 +54,16 @@ export async function discoverSourceFiles(
     ...DEFAULT_IGNORED_FILES,
     ...(options.ignoreFiles ?? []),
   ]);
+
+  const includedFiles =
+    options.includeFiles === undefined
+      ? undefined
+      : new Set(
+          options.includeFiles.map(
+            (filePath) =>
+              filePath.replaceAll("\\", "/"),
+          ),
+        );
 
   const files: string[] = [];
 
@@ -101,9 +112,19 @@ export async function discoverSourceFiles(
         continue;
       }
 
-      files.push(
-        relative(root, absolutePath),
-      );
+      const relativePath = relative(
+        root,
+        absolutePath,
+      ).replaceAll("\\", "/");
+
+      if (
+        includedFiles !== undefined &&
+        !includedFiles.has(relativePath)
+      ) {
+        continue;
+      }
+
+      files.push(relativePath);
     }
   }
 
@@ -128,4 +149,3 @@ function getExtension(
     .slice(lastDot)
     .toLowerCase();
 }
-

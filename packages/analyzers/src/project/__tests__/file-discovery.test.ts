@@ -264,3 +264,112 @@ test(
   },
 );
 
+test(
+  "includes only configured files",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel-discovery-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(directory, "App.tsx"),
+        "",
+        "utf8",
+      );
+
+      await writeFile(
+        join(directory, "Other.tsx"),
+        "",
+        "utf8",
+      );
+
+      const files =
+        await discoverSourceFiles(
+          directory,
+          {
+            includeFiles: [
+              "App.tsx",
+            ],
+          },
+        );
+
+      assert.deepEqual(
+        files,
+        ["App.tsx"],
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
+test(
+  "includes configured nested files",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel-discovery-",
+        ),
+      );
+
+    try {
+      const srcDirectory =
+        join(directory, "src");
+
+      await mkdir(
+        srcDirectory,
+        {
+          recursive: true,
+        },
+      );
+
+      await writeFile(
+        join(srcDirectory, "App.tsx"),
+        "",
+        "utf8",
+      );
+
+      await writeFile(
+        join(srcDirectory, "Other.tsx"),
+        "",
+        "utf8",
+      );
+
+      const files =
+        await discoverSourceFiles(
+          directory,
+          {
+            includeFiles: [
+              "src/App.tsx",
+            ],
+          },
+        );
+
+      assert.deepEqual(
+        files,
+        ["src/App.tsx"],
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
