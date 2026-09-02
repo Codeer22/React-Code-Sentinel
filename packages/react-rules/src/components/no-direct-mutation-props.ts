@@ -89,12 +89,12 @@ function isMutationOperator(
     kind ===
       ts.SyntaxKind.GreaterThanGreaterThanEqualsToken ||
     kind ===
-      ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken
-    || kind ===
-      ts.SyntaxKind.AmpersandAmpersandEqualsToken
-    || kind ===
-      ts.SyntaxKind.BarBarEqualsToken
-    || kind ===
+      ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken ||
+    kind ===
+      ts.SyntaxKind.AmpersandAmpersandEqualsToken ||
+    kind ===
+      ts.SyntaxKind.BarBarEqualsToken ||
+    kind ===
       ts.SyntaxKind.QuestionQuestionEqualsToken
   );
 }
@@ -338,6 +338,56 @@ function isPropsMutationTarget(
 
     visitedSymbols.add(symbol);
 
+    /*
+     * Find the function/source-file scope
+     * containing the reference.
+     */
+    let scope:
+      | ts.Node
+      | undefined =
+      useNode.parent;
+
+    while (
+      scope !== undefined &&
+      !ts.isFunctionLike(scope) &&
+      !ts.isSourceFile(scope)
+    ) {
+      scope = scope.parent;
+    }
+
+    if (
+      scope === undefined
+    ) {
+      return false;
+    }
+
+    /*
+     * Track the latest value assigned to
+     * this symbol before the reference.
+     *
+     * This includes both:
+     *
+     *   const currentProps = props;
+     *
+     * and:
+     *
+     *   currentProps = props;
+     */
+    let latestValue:
+      | ts.Expression
+      | undefined;
+
+    let latestPosition = -1;
+
+    /*
+     * Variable declarations.
+     *
+     * This deliberately handles BindingElement
+     * declarations separately so destructured
+     * props continue to work:
+     *
+     *   const { user } = props;
+     */
     for (
       const declaration of
         symbol.declarations ?? []
@@ -347,16 +397,26 @@ function isPropsMutationTarget(
           declaration,
         )
       ) {
+        const initializer =
+          declaration.initializer;
+
         if (
-          declaration.initializer !==
-            undefined &&
-          isPropsMutationTarget(
-            declaration.initializer,
-            propsParameter,
-            checker,
-          )
+          initializer !== undefined &&
+          initializer.getEnd() <
+            useNode.getStart()
         ) {
-          return true;
+          const position =
+            initializer.getStart();
+
+          if (
+            position > latestPosition
+          ) {
+            latestPosition =
+              position;
+
+            latestValue =
+              initializer;
+          }
         }
 
         continue;
@@ -378,67 +438,49 @@ function isPropsMutationTarget(
           continue;
         }
 
+        const initializer =
+          variableDeclaration.initializer;
+
         if (
-          variableDeclaration.initializer !==
-            undefined &&
-          isPropsMutationTarget(
-            variableDeclaration.initializer,
-            propsParameter,
-            checker,
-          )
+          initializer !== undefined &&
+          initializer.getEnd() <
+            useNode.getStart()
         ) {
-          return true;
+          const position =
+            initializer.getStart();
+
+          if (
+            position > latestPosition
+          ) {
+            latestPosition =
+              position;
+
+            /*
+             * For:
+             *
+             *   const { user } = props;
+             *
+             * the binding itself represents
+             * a property extracted from props.
+             *
+             * Treating the initializer as the
+             * source preserves the existing
+             * destructured-prop behavior.
+             */
+            latestValue =
+              initializer;
+          }
         }
       }
     }
 
     /*
-     * Assignment aliases are resolved using
-     * the latest assignment before the
-     * reference.
+     * Find later assignments to this exact
+     * symbol.
      *
-     * Example:
-     *
-     *   let currentProps;
-     *
-     *   currentProps = props;
-     *   currentProps.name = "Updated";
-     *
-     * The first assignment makes currentProps
-     * an alias of props.
-     *
-     * If the variable is subsequently reassigned:
-     *
-     *   currentProps = {
-     *     name: "Local",
-     *   };
-     *
-     * then the alias is broken from that point
-     * onward.
+     * The latest assignment wins over the
+     * original initializer.
      */
-    let scope:
-      | ts.Node
-      | undefined =
-      node.parent;
-
-    while (
-      scope !== undefined &&
-      !ts.isFunctionLike(scope) &&
-      !ts.isSourceFile(scope)
-    ) {
-      scope = scope.parent;
-    }
-
-    if (
-      scope === undefined
-    ) {
-      return false;
-    }
-
-    let latestAssignment:
-      | ts.BinaryExpression
-      | undefined;
-
     function visit(
       current: ts.Node,
     ): void {
@@ -465,8 +507,18 @@ function isPropsMutationTarget(
         if (
           leftSymbol === symbol
         ) {
-          latestAssignment =
-            current;
+          const position =
+            current.getStart();
+
+          if (
+            position > latestPosition
+          ) {
+            latestPosition =
+              position;
+
+            latestValue =
+              current.right;
+          }
         }
       }
 
@@ -479,14 +531,13 @@ function isPropsMutationTarget(
     visit(scope);
 
     if (
-      latestAssignment !==
-      undefined
+      latestValue !== undefined
     ) {
       return isPropsMutationTarget(
-        latestAssignment.right,
+        latestValue,
         propsParameter,
         checker,
-        latestAssignment,
+        useNode,
       );
     }
 
@@ -516,18 +567,6 @@ function analyzeMutation(
      * A plain identifier assignment is
      * reassignment, not mutation of the
      * referenced object.
-     *
-     * Example:
-     *
-     *   let currentProps;
-     *   currentProps = props;
-     *   currentProps = {
-     *     name: "Local",
-     *   };
-     *
-     * The first assignment establishes an alias.
-     * The second assignment breaks that alias.
-     * Neither assignment mutates props.
      */
     if (
       node.operatorToken.kind ===
@@ -551,10 +590,6 @@ function analyzeMutation(
       /*
        * Direct reassignment of the actual
        * props parameter is still a mutation.
-       *
-       * Example:
-       *
-       *   props = nextProps;
        */
       if (
         isPropsBinding(

@@ -100,3 +100,125 @@ test(
     assert.equal(diagnostics.length, 1);
   },
 );
+
+test(
+  "no-direct-mutation-props reports alias re-established after reassignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          let currentProps = props;
+
+          currentProps.name = "First";
+
+          currentProps = {
+            name: "Local",
+          };
+
+          currentProps = props;
+
+          currentProps.name = "Second";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 2);
+  },
+);
+
+test(
+  "no-direct-mutation-props ignores mutation after alias is broken",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationPropsRule,
+      `
+        function UserCard(props) {
+          let currentProps = props;
+
+          currentProps = {
+            name: "Local",
+          };
+
+          currentProps.name = "Local mutation";
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-state ignores mutation after state alias is broken",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            let currentState = this.state;
+
+            currentState = {
+              count: 0,
+            };
+
+            currentState.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 0);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports state alias re-established after reassignment",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            let currentState = {
+              count: 0,
+            };
+
+            currentState = this.state;
+
+            currentState.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
+
+test(
+  "no-direct-mutation-state reports state alias after breaking and re-establishing it",
+  () => {
+    const diagnostics = analyzeRule(
+      noDirectMutationStateRule,
+      `
+        class Counter extends React.Component {
+          update() {
+            let currentState = this.state;
+
+            currentState = {
+              count: 0,
+            };
+
+            currentState = this.state;
+
+            currentState.count = 1;
+          }
+        }
+      `,
+    );
+
+    assert.equal(diagnostics.length, 1);
+  },
+);
