@@ -1885,15 +1885,36 @@ function symbolReferencesProps(
        *     return p.name;
        *   }
        */
-      if (
+            if (
         node !== scope &&
         ts.isFunctionLike(node)
       ) {
-        const useScope =
+        let currentUseScope =
           findScope(useNode);
 
+        /*
+         * A reference belongs to the execution
+         * context of its innermost containing
+         * function.
+         *
+         * Walk outward through nested functions.
+         * If this assignment is in a function that
+         * is not an ancestor of the reference's
+         * execution context, it cannot affect this
+         * particular reference.
+         */
+        while (
+          currentUseScope !== undefined &&
+          currentUseScope !== node
+        ) {
+          currentUseScope =
+            findScope(
+              currentUseScope.parent,
+            );
+        }
+
         if (
-          useScope !== node
+          currentUseScope !== node
         ) {
           return;
         }

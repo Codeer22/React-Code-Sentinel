@@ -2109,6 +2109,75 @@ test(
 );
 
 test(
+  "ignores nested alias reassignment when it is deeper than the outer function",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Component(
+          props: any,
+        ) {
+          let p = props;
+
+          function outer() {
+            function inner() {
+              p = {};
+            }
+
+            return inner;
+          }
+
+          return p.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "reports nested alias access after deeper nested function reassignment",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Component(
+          props: any,
+        ) {
+          let p = props;
+
+          function outer() {
+            function inner() {
+              p = {};
+              return p.name;
+            }
+
+            return inner;
+          }
+
+          return outer;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
+
+test(
   "ignores shadowed alias unrelated to props",
   () => {
     const context =
