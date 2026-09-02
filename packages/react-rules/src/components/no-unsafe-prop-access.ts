@@ -143,6 +143,327 @@ function findContainingComponent(
   return undefined;
 }
 
+function isAssignmentOperator(
+  kind: ts.SyntaxKind,
+): boolean {
+  switch (kind) {
+    case ts.SyntaxKind.EqualsToken:
+    case ts.SyntaxKind.PlusEqualsToken:
+    case ts.SyntaxKind.MinusEqualsToken:
+    case ts.SyntaxKind.AsteriskEqualsToken:
+    case ts.SyntaxKind.SlashEqualsToken:
+    case ts.SyntaxKind.PercentEqualsToken:
+    case ts.SyntaxKind.AsteriskAsteriskEqualsToken:
+    case ts.SyntaxKind.LessThanLessThanEqualsToken:
+    case ts.SyntaxKind.GreaterThanGreaterThanEqualsToken:
+    case ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken:
+    case ts.SyntaxKind.AmpersandEqualsToken:
+    case ts.SyntaxKind.BarEqualsToken:
+    case ts.SyntaxKind.CaretEqualsToken:
+    case ts.SyntaxKind.AmpersandAmpersandEqualsToken:
+    case ts.SyntaxKind.BarBarEqualsToken:
+    case ts.SyntaxKind.QuestionQuestionEqualsToken:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+function isUnconditionalReassignmentOperator(
+  kind: ts.SyntaxKind,
+): boolean {
+  switch (kind) {
+    case ts.SyntaxKind.EqualsToken:
+    case ts.SyntaxKind.PlusEqualsToken:
+    case ts.SyntaxKind.MinusEqualsToken:
+    case ts.SyntaxKind.AsteriskEqualsToken:
+    case ts.SyntaxKind.SlashEqualsToken:
+    case ts.SyntaxKind.PercentEqualsToken:
+    case ts.SyntaxKind.AsteriskAsteriskEqualsToken:
+    case ts.SyntaxKind.LessThanLessThanEqualsToken:
+    case ts.SyntaxKind.GreaterThanGreaterThanEqualsToken:
+    case ts.SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken:
+    case ts.SyntaxKind.AmpersandEqualsToken:
+    case ts.SyntaxKind.BarEqualsToken:
+    case ts.SyntaxKind.CaretEqualsToken:
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+function isSymbolReassignedBefore(
+  node: ts.Node,
+  typeChecker: ts.TypeChecker,
+): boolean {
+  const symbol =
+    typeChecker.getSymbolAtLocation(
+      node,
+    );
+
+  if (
+    symbol === undefined
+  ) {
+    return false;
+  }
+
+  let scope:
+    | ts.Node
+    | undefined =
+    node.parent;
+
+  while (
+    scope !== undefined &&
+    !ts.isFunctionLike(scope) &&
+    !ts.isSourceFile(scope)
+  ) {
+    scope =
+      scope.parent;
+  }
+
+  if (
+    scope === undefined
+  ) {
+    return false;
+  }
+
+  function statementDefinitelyAssignsSymbol(
+    statement: ts.Statement,
+  ): boolean {
+    if (
+      ts.isExpressionStatement(statement) &&
+      ts.isBinaryExpression(statement.expression) &&
+      statement.expression.operatorToken.kind ===
+      ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(statement.expression.left)
+    ) {
+      const assignedSymbol =
+        typeChecker.getSymbolAtLocation(
+          statement.expression.left,
+        );
+
+      return (
+        assignedSymbol === symbol
+      );
+    }
+
+    if (
+      ts.isBlock(statement)
+    ) {
+      /*
+       * A sequence of statements definitely assigns
+       * the symbol if one of the statements is an
+       * unconditional assignment and nothing can
+       * bypass it.
+       *
+       * For our current use, an explicit assignment
+       * statement in the block is sufficient.
+       */
+      for (
+        const child
+        of statement.statements
+      ) {
+        if (
+          statementDefinitelyAssignsSymbol(
+            child,
+          )
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    if (
+      ts.isIfStatement(statement)
+    ) {
+      if (
+        statement.elseStatement ===
+        undefined
+      ) {
+        return false;
+      }
+
+      return (
+        statementDefinitelyAssignsSymbol(
+          statement.thenStatement,
+        ) &&
+        statementDefinitelyAssignsSymbol(
+          statement.elseStatement,
+        )
+      );
+    }
+
+    return false;
+  }
+
+  function isConditionalAssignment(
+    assignment: ts.Node,
+  ): boolean {
+    let current:
+      | ts.Node
+      | undefined =
+      assignment.parent;
+
+    while (
+      current !== undefined &&
+      current !== scope
+    ) {
+      if (
+        ts.isIfStatement(current)
+      ) {
+        /*
+         * If both branches definitely assign the
+         * symbol, the original value is gone.
+         */
+        if (
+          current.elseStatement !==
+          undefined &&
+          statementDefinitelyAssignsSymbol(
+            current,
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+
+      if (
+        ts.isWhileStatement(current) ||
+        ts.isForStatement(current) ||
+        ts.isForInStatement(current) ||
+        ts.isForOfStatement(current)
+      ) {
+        return true;
+      }
+
+      if (
+        ts.isSwitchStatement(current) ||
+        ts.isCaseClause(current) ||
+        ts.isDefaultClause(current) ||
+        ts.isConditionalExpression(current)
+      ) {
+        return true;
+      }
+
+      /*
+       * A do/while body executes at least once,
+       * so an assignment before the access can
+       * invalidate the original value.
+       */
+      if (
+        ts.isDoStatement(current)
+      ) {
+        current =
+          current.parent;
+        continue;
+      }
+
+      if (
+        ts.isFunctionLike(current)
+      ) {
+        return true;
+      }
+
+      current =
+        current.parent;
+    }
+
+    return false;
+  }
+
+  let reassigned = false;
+
+  function visit(
+    current: ts.Node,
+  ): void {
+    /*
+     * Do not inspect nested functions. Their local
+     * assignments must not affect this symbol.
+     */
+    if (
+      current !== scope &&
+      ts.isFunctionLike(current)
+    ) {
+      return;
+    }
+
+    /*
+     * Only statements before this exact reference
+     * can affect it.
+     */
+    if (
+      current.getStart() >=
+      node.getStart()
+    ) {
+      return;
+    }
+
+    if (
+      ts.isBinaryExpression(current) &&
+      ts.isIdentifier(current.left) &&
+      isUnconditionalReassignmentOperator(
+        current.operatorToken.kind,
+      )
+    ) {
+      const leftSymbol =
+        typeChecker.getSymbolAtLocation(
+          current.left,
+        );
+
+      if (
+        leftSymbol === symbol
+      ) {
+        /*
+         * A conditional assignment does not prove
+         * that the original props value disappeared.
+         */
+        if (
+          isConditionalAssignment(
+            current,
+          )
+        ) {
+          return;
+        }
+
+        reassigned = true;
+        return;
+      }
+    }
+
+    /*
+     * Handle an if/else where every branch replaces
+     * the symbol.
+     */
+    if (
+      ts.isIfStatement(current) &&
+      current.getStart() <
+      node.getStart() &&
+      current.elseStatement !==
+      undefined &&
+      statementDefinitelyAssignsSymbol(
+        current,
+      )
+    ) {
+      reassigned = true;
+      return;
+    }
+
+    ts.forEachChild(
+      current,
+      visit,
+    );
+  }
+
+  visit(scope);
+
+  return reassigned;
+}
+
 function getUnsafePropName(
   node: ts.Node,
   propsParameter:
@@ -176,8 +497,10 @@ function getUnsafePropName(
 
     if (
       argument !== undefined &&
-      (ts.isStringLiteral(argument) ||
-        ts.isNumericLiteral(argument))
+      (
+        ts.isStringLiteral(argument) ||
+        ts.isNumericLiteral(argument)
+      )
     ) {
       return argument.text;
     }
@@ -193,6 +516,64 @@ function getUnsafePropName(
       typeChecker,
     )
   ) {
+    /*
+     * An identifier used as the left-hand side
+     * of an assignment is a write, not a prop
+     * access.
+     */
+    if (
+      ts.isBinaryExpression(node.parent) &&
+      node.parent.left === node &&
+      isAssignmentOperator(
+        node.parent.operatorToken.kind,
+      )
+    ) {
+      return undefined;
+    }
+
+    /*
+     * If this destructured binding has already
+     * been reassigned before the current read,
+     * the current value no longer comes from props.
+     */
+    if (
+      isSymbolReassignedBefore(
+        node,
+        typeChecker,
+      )
+    ) {
+      return undefined;
+    }
+
+    const symbol =
+      typeChecker.getSymbolAtLocation(
+        node,
+      );
+
+    if (
+      symbol === undefined
+    ) {
+      return undefined;
+    }
+
+    /*
+     * The identifier in the binding declaration
+     * itself is not a prop access.
+     */
+    for (
+      const declaration
+      of symbol.declarations ?? []
+    ) {
+      if (
+        ts.isBindingElement(
+          declaration,
+        ) &&
+        declaration.name === node
+      ) {
+        return undefined;
+      }
+    }
+
     return getDestructuredPropName(
       node,
       propsParameter,
@@ -214,6 +595,14 @@ function getUnsafePropType(
     ts.isPropertyAccessExpression(
       node,
     )
+  ) {
+    return typeChecker.getTypeAtLocation(
+      node,
+    );
+  }
+
+  if (
+    ts.isElementAccessExpression(node)
   ) {
     return typeChecker.getTypeAtLocation(
       node,
@@ -278,6 +667,14 @@ function getUnsafePropType(
      *   const { name } = props;
      *   return <div>{name}</div>;
      * }
+     *
+     * Also supports nested destructuring:
+     *
+     * const {
+     *   user: {
+     *     name,
+     *   },
+     * } = props;
      */
     const symbol =
       typeChecker.getSymbolAtLocation(
@@ -328,12 +725,13 @@ function getUnsafePropType(
         }
 
         const variableDeclaration =
-          bindingPattern.parent;
+          getContainingVariableDeclaration(
+            bindingPattern,
+          );
 
         if (
-          !ts.isVariableDeclaration(
-            variableDeclaration,
-          )
+          variableDeclaration ===
+          undefined
         ) {
           continue;
         }
@@ -352,32 +750,52 @@ function getUnsafePropType(
             initializer,
           );
 
+        /*
+         * If the whole initializer is any or
+         * unknown, the destructured binding is
+         * unsafe as well.
+         */
+        if (
+          (initializerType.flags &
+            ts.TypeFlags.Any) !==
+          0 ||
+          (initializerType.flags &
+            ts.TypeFlags.Unknown) !==
+          0
+        ) {
+          return initializerType;
+        }
+
         const propertyName =
           declaration.propertyName !==
             undefined
             ? declaration.propertyName
             : declaration.name;
 
+        /*
+         * Nested destructuring may have another
+         * BindingElement as its property name.
+         * The final property is handled by
+         * getDestructuredPropName().
+         */
         if (
-          !ts.isIdentifier(
+          ts.isIdentifier(
             propertyName,
           )
         ) {
-          continue;
-        }
+          const property =
+            initializerType.getProperty(
+              propertyName.text,
+            );
 
-        const property =
-          initializerType.getProperty(
-            propertyName.text,
-          );
-
-        if (
-          property !== undefined
-        ) {
-          return typeChecker.getTypeOfSymbolAtLocation(
-            property,
-            node,
-          );
+          if (
+            property !== undefined
+          ) {
+            return typeChecker.getTypeOfSymbolAtLocation(
+              property,
+              node,
+            );
+          }
         }
 
         return initializerType;
@@ -451,12 +869,18 @@ function bindingPatternContainsSymbol(
   targetSymbol: ts.Symbol,
   typeChecker: ts.TypeChecker,
 ): boolean {
-  for (const element of pattern.elements) {
-    if (!ts.isBindingElement(element)) {
+  for (
+    const element of pattern.elements
+  ) {
+    if (
+      !ts.isBindingElement(element)
+    ) {
       continue;
     }
 
-    if (ts.isIdentifier(element.name)) {
+    if (
+      ts.isIdentifier(element.name)
+    ) {
       if (
         typeChecker.getSymbolAtLocation(
           element.name,
@@ -487,16 +911,18 @@ function getBindingPropertyName(
   node: ts.Identifier,
   typeChecker: ts.TypeChecker,
 ): string | undefined {
-  for (const element of pattern.elements) {
-    if (!ts.isBindingElement(element)) {
+  for (
+    const element of pattern.elements
+  ) {
+    if (
+      !ts.isBindingElement(element)
+    ) {
       continue;
     }
 
-    if (ts.isIdentifier(element.name)) {
-      if (element.name === node) {
-        continue;
-      }
-
+    if (
+      ts.isIdentifier(element.name)
+    ) {
       const bindingSymbol =
         typeChecker.getSymbolAtLocation(
           element.name,
@@ -504,13 +930,20 @@ function getBindingPropertyName(
 
       if (
         element.name === node ||
-        (bindingSymbol !== undefined &&
+        (
+          bindingSymbol !== undefined &&
           bindingSymbol ===
-            typeChecker.getSymbolAtLocation(node))
+          typeChecker.getSymbolAtLocation(
+            node,
+          )
+        )
       ) {
         if (
-          element.propertyName !== undefined &&
-          ts.isIdentifier(element.propertyName)
+          element.propertyName !==
+          undefined &&
+          ts.isIdentifier(
+            element.propertyName,
+          )
         ) {
           return element.propertyName.text;
         }
@@ -528,9 +961,52 @@ function getBindingPropertyName(
         typeChecker,
       );
 
-    if (nestedName !== undefined) {
+    if (
+      nestedName !== undefined
+    ) {
       return nestedName;
     }
+  }
+
+  return undefined;
+}
+
+function getContainingVariableDeclaration(
+  bindingPattern: ts.BindingPattern,
+): ts.VariableDeclaration | undefined {
+  let current:
+    | ts.Node
+    | undefined =
+    bindingPattern;
+
+  while (
+    current !== undefined
+  ) {
+    if (
+      ts.isVariableDeclaration(current)
+    ) {
+      return current;
+    }
+
+    if (
+      ts.isBindingElement(current)
+    ) {
+      current =
+        current.parent;
+      continue;
+    }
+
+    if (
+      ts.isObjectBindingPattern(current) ||
+      ts.isArrayBindingPattern(current)
+    ) {
+      current =
+        current.parent;
+      continue;
+    }
+
+    current =
+      current.parent;
   }
 
   return undefined;
@@ -580,6 +1056,14 @@ function isDestructuredPropAccess(
    *   const { name } = props;
    *   return <div>{name}</div>;
    * }
+   *
+   * Also supports:
+   *
+   * const {
+   *   user: {
+   *     name,
+   *   },
+   * } = props;
    */
   if (
     !ts.isIdentifier(
@@ -612,6 +1096,12 @@ function isDestructuredPropAccess(
       continue;
     }
 
+    /*
+     * The declaration can be nested inside
+     * multiple BindingElement / BindingPattern
+     * nodes. Walk all the way to the containing
+     * VariableDeclaration.
+     */
     const bindingPattern =
       declaration.parent;
 
@@ -624,12 +1114,13 @@ function isDestructuredPropAccess(
     }
 
     const variableDeclaration =
-      bindingPattern.parent;
+      getContainingVariableDeclaration(
+        bindingPattern,
+      );
 
     if (
-      !ts.isVariableDeclaration(
-        variableDeclaration,
-      )
+      variableDeclaration ===
+      undefined
     ) {
       continue;
     }
@@ -652,7 +1143,8 @@ function isDestructuredPropAccess(
       );
 
     if (
-      initializerSymbol !== undefined &&
+      initializerSymbol !==
+      undefined &&
       symbolReferencesProps(
         initializerSymbol,
         propsSymbol,
@@ -694,16 +1186,44 @@ function getDestructuredPropName(
   }
 
   /*
-   * Case 2:
+   * Local destructuring:
    *
    * function UserCard(props: any) {
    *   const { name: alias } = props;
    *   return <div>{alias}</div>;
    * }
    *
-   * Resolve the usage through the symbol,
-   * but ignore the declaration itself.
+   * Also supports nested destructuring:
+   *
+   * function UserCard(props: any) {
+   *   const {
+   *     user: {
+   *       name: displayName,
+   *     },
+   *   } = props;
+   *
+   *   return <div>{displayName}</div>;
+   * }
    */
+  if (
+    !ts.isIdentifier(
+      propsParameter.name,
+    )
+  ) {
+    return undefined;
+  }
+
+  const propsSymbol =
+    typeChecker.getSymbolAtLocation(
+      propsParameter.name,
+    );
+
+  if (
+    propsSymbol === undefined
+  ) {
+    return undefined;
+  }
+
   const symbol =
     typeChecker.getSymbolAtLocation(
       node,
@@ -749,12 +1269,13 @@ function getDestructuredPropName(
     }
 
     const variableDeclaration =
-      bindingPattern.parent;
+      getContainingVariableDeclaration(
+        bindingPattern,
+      );
 
     if (
-      !ts.isVariableDeclaration(
-        variableDeclaration,
-      )
+      variableDeclaration ===
+      undefined
     ) {
       continue;
     }
@@ -777,26 +1298,13 @@ function getDestructuredPropName(
       );
 
     if (
-      initializerSymbol === undefined
+      initializerSymbol ===
+      undefined
     ) {
       continue;
     }
 
     if (
-      !ts.isIdentifier(
-        propsParameter.name,
-      )
-    ) {
-      continue;
-    }
-
-    const propsSymbol =
-      typeChecker.getSymbolAtLocation(
-        propsParameter.name,
-      );
-
-    if (
-      propsSymbol === undefined ||
       !symbolReferencesProps(
         initializerSymbol,
         propsSymbol,
@@ -807,6 +1315,13 @@ function getDestructuredPropName(
       continue;
     }
 
+    /*
+     * For a normal renamed binding:
+     *
+     *   const { name: alias } = props;
+     *
+     * the property name is `name`.
+     */
     const propertyName =
       declaration.propertyName !==
         undefined
@@ -819,6 +1334,29 @@ function getDestructuredPropName(
       )
     ) {
       return propertyName.text;
+    }
+
+    /*
+     * For nested destructuring, recursively
+     * resolve the complete binding path.
+     */
+    if (
+      ts.isObjectBindingPattern(
+        propertyName
+      )
+    ) {
+      const nestedName =
+        getBindingPropertyName(
+          propertyName,
+          node,
+          typeChecker,
+        );
+
+      if (
+        nestedName !== undefined
+      ) {
+        return nestedName;
+      }
     }
   }
 
@@ -889,116 +1427,606 @@ function symbolReferencesProps(
   propsSymbol: ts.Symbol,
   typeChecker: ts.TypeChecker,
   referenceNode?: ts.Node,
-) {
-  const visited = new Set<ts.Symbol>();
+): boolean {
+  /*
+   * Track symbols together with their reference
+   * position. A symbol can have different values
+   * at different locations because of reassignment.
+   */
+  const visited =
+    new Set<string>();
 
-  function references(
+  function getSymbolKey(
+    symbol: ts.Symbol,
+  ): string {
+    const declaration =
+      symbol.declarations?.[0];
+
+    if (
+      declaration !== undefined
+    ) {
+      return [
+        symbol.getName(),
+        declaration
+          .getSourceFile()
+          .fileName,
+        declaration.getStart(),
+      ].join(":");
+    }
+
+    return symbol.getName();
+  }
+
+  function findScope(
+    node: ts.Node,
+  ):
+    | ts.Node
+    | undefined {
+    let scope:
+      | ts.Node
+      | undefined =
+      node.parent;
+
+    while (
+      scope !== undefined &&
+      !ts.isFunctionLike(scope) &&
+      !ts.isSourceFile(scope)
+    ) {
+      scope = scope.parent;
+    }
+
+    return scope;
+  }
+
+  function statementDefinitelyAssignsSymbol(
+    statement: ts.Statement,
     symbol: ts.Symbol,
   ): boolean {
-    if (symbol === propsSymbol) {
-      return true;
-    }
-
-    if (visited.has(symbol)) {
-      return false;
-    }
-
-    visited.add(symbol);
-
-    for (
-      const declaration
-      of symbol.declarations ?? []
+    if (
+      ts.isExpressionStatement(
+        statement,
+      ) &&
+      ts.isBinaryExpression(
+        statement.expression,
+      ) &&
+      statement.expression.operatorToken.kind ===
+      ts.SyntaxKind.EqualsToken &&
+      ts.isIdentifier(
+        statement.expression.left,
+      )
     ) {
-      if (
-        !ts.isVariableDeclaration(
-          declaration,
-        ) ||
-        declaration.initializer === undefined ||
-        !ts.isIdentifier(
-          declaration.initializer,
-        )
-      ) {
-        continue;
-      }
-
-      const referencedSymbol =
+      const assignedSymbol =
         typeChecker.getSymbolAtLocation(
-          declaration.initializer,
+          statement.expression.left,
         );
 
+      return (
+        assignedSymbol === symbol
+      );
+    }
+
+    if (
+      ts.isBlock(statement)
+    ) {
+      return statement.statements.some(
+        (child) =>
+          statementDefinitelyAssignsSymbol(
+            child,
+            symbol,
+          ),
+      );
+    }
+
+    if (
+      ts.isIfStatement(statement)
+    ) {
       if (
-        referencedSymbol !== undefined &&
-        references(
-          referencedSymbol,
+        statement.elseStatement ===
+        undefined
+      ) {
+        return false;
+      }
+
+      return (
+        statementDefinitelyAssignsSymbol(
+          statement.thenStatement,
+          symbol,
+        ) &&
+        statementDefinitelyAssignsSymbol(
+          statement.elseStatement,
+          symbol,
         )
+      );
+    }
+
+    return false;
+  }
+
+  function isConditionallyExecuted(
+    node: ts.Node,
+  ): boolean {
+    let current:
+      | ts.Node
+      | undefined =
+      node.parent;
+
+    while (
+      current !== undefined
+    ) {
+      if (
+        ts.isIfStatement(current)
+      ) {
+        /*
+         * An if/else whose both branches
+         * definitely assign this symbol does
+         * not leave the previous value reachable.
+         */
+        if (
+          current.elseStatement !==
+          undefined &&
+          statementDefinitelyAssignsSymbol(
+            current,
+            initializerSymbol,
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+
+      if (
+        ts.isDoStatement(current)
+      ) {
+        return false;
+      }
+
+      if (
+        ts.isWhileStatement(current) ||
+        ts.isForStatement(current) ||
+        ts.isForInStatement(current) ||
+        ts.isForOfStatement(current)
       ) {
         return true;
       }
-    }
 
-    if (referenceNode !== undefined) {
-      const referenceStart =
-        referenceNode.getStart();
-
-      let scope:
-        | ts.Node
-        | undefined =
-        referenceNode.parent;
-
-      while (
-        scope !== undefined &&
-        !ts.isFunctionLike(scope) &&
-        !ts.isSourceFile(scope)
+      if (
+        ts.isConditionalExpression(
+          current,
+        ) ||
+        ts.isSwitchStatement(current) ||
+        ts.isCaseClause(current) ||
+        ts.isDefaultClause(current)
       ) {
-        scope = scope.parent;
-      }
-
-      let latestAssignment:
-        | ts.BinaryExpression
-        | undefined;
-
-      function visit(
-        node: ts.Node,
-      ): void {
-        if (
-          node !== scope &&
-          ts.isFunctionLike(node)
-        ) {
-          return;
-        }
-
-        if (
-          node.getStart() <
-            referenceStart &&
-          ts.isBinaryExpression(node) &&
-          node.operatorToken.kind ===
-            ts.SyntaxKind.EqualsToken &&
-          ts.isIdentifier(node.left) &&
-          typeChecker.getSymbolAtLocation(
-            node.left,
-          ) === initializerSymbol
-        ) {
-          latestAssignment = node;
-        }
-
-        ts.forEachChild(node, visit);
-      }
-
-      if (scope !== undefined) {
-        visit(scope);
+        return true;
       }
 
       if (
-        latestAssignment !== undefined
+        ts.isFunctionLike(current)
       ) {
-        const assignmentSymbol =
+        return false;
+      }
+
+      current =
+        current.parent;
+    }
+
+    return false;
+  }
+
+  function resolve(
+    symbol: ts.Symbol,
+    useNode: ts.Node,
+  ): boolean {
+    /*
+     * The actual props parameter is always
+     * a valid props source.
+     */
+    if (
+      symbol === propsSymbol
+    ) {
+      /*
+       * The props parameter normally represents the
+       * component's incoming props. However, if the
+       * parameter has been reassigned before this
+       * reference, the current value no longer
+       * necessarily comes from the incoming props.
+       */
+      if (
+        isSymbolReassignedBefore(
+          useNode,
+          typeChecker,
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    }
+
+    const referenceStart =
+      useNode.getStart();
+
+    const key =
+      `${getSymbolKey(symbol)}:${referenceStart}`;
+
+    if (
+      visited.has(key)
+    ) {
+      return false;
+    }
+
+    visited.add(key);
+
+    /*
+ * Track the alias from the scope where it was
+ * declared, not the scope where it happens to
+ * be read.
+ *
+ * This matters for captured aliases:
+ *
+ *   let p = props;
+ *   p = localObject;
+ *
+ *   function render() {
+ *     return p.name;
+ *   }
+ *
+ * The read is inside render(), but the value of
+ * p is controlled by the outer scope.
+ */
+    const declaration =
+      initializerSymbol.declarations?.[0];
+
+    const scope =
+      declaration !== undefined
+        ? findScope(declaration)
+        : findScope(useNode);
+
+    if (
+      scope === undefined
+    ) {
+      return false;
+    }
+
+    /*
+     * Track every value that may reach the
+     * current reference.
+     */
+    const possibleValues:
+      ts.Expression[] = [];
+
+    function addPossibleValue(
+      value: ts.Expression,
+    ): void {
+      possibleValues.push(value);
+    }
+
+    /*
+     * Find the variable initializer.
+     *
+     * Example:
+     *
+     *   let currentProps = props;
+     */
+    for (
+      const declaration of
+      symbol.declarations ?? []
+    ) {
+      if (
+        ts.isVariableDeclaration(
+          declaration,
+        )
+      ) {
+        const initializer =
+          declaration.initializer;
+
+        if (
+          initializer === undefined ||
+          initializer.getEnd() >=
+          referenceStart
+        ) {
+          continue;
+        }
+
+        addPossibleValue(
+          initializer,
+        );
+
+        continue;
+      }
+
+      /*
+       * Destructured variable declarations use
+       * a BindingElement as the symbol declaration.
+       *
+       * Example:
+       *
+       *   let { name } = props;
+       *
+       * Nested destructuring can have multiple
+       * BindingElement / BindingPattern levels:
+       *
+       *   const {
+       *     user: {
+       *       name,
+       *     },
+       *   } = props;
+       */
+      if (
+        ts.isBindingElement(
+          declaration,
+        )
+      ) {
+        const bindingPattern =
+          declaration.parent;
+
+        if (
+          !ts.isObjectBindingPattern(
+            bindingPattern,
+          )
+        ) {
+          continue;
+        }
+
+        /*
+         * Walk upward until the containing
+         * VariableDeclaration is found.
+         *
+         * This handles both:
+         *
+         *   const { name } = props;
+         *
+         * and:
+         *
+         *   const {
+         *     user: {
+         *       name,
+         *     },
+         *   } = props;
+         */
+        let current:
+          | ts.Node
+          | undefined =
+          bindingPattern;
+
+        let variableDeclaration:
+          | ts.VariableDeclaration
+          | undefined;
+
+        while (
+          current !== undefined
+        ) {
+          if (
+            ts.isVariableDeclaration(
+              current,
+            )
+          ) {
+            variableDeclaration =
+              current;
+            break;
+          }
+
+          current =
+            current.parent;
+        }
+
+        if (
+          variableDeclaration ===
+          undefined
+        ) {
+          continue;
+        }
+
+        const initializer =
+          variableDeclaration.initializer;
+
+        if (
+          initializer === undefined ||
+          initializer.getEnd() >=
+          referenceStart
+        ) {
+          continue;
+        }
+
+        /*
+         * The destructured binding ultimately
+         * receives its value from the outer
+         * variable initializer.
+         *
+         * Example:
+         *
+         *   const {
+         *     user: {
+         *       name,
+         *     },
+         *   } = props;
+         *
+         * The source value is `props`.
+         */
+        addPossibleValue(
+          initializer,
+        );
+      }
+    }
+
+    /*
+     * Find assignments to this exact symbol.
+     */
+    function visit(
+      node: ts.Node,
+    ): void {
+      /*
+       * Nested functions have their own execution
+       * context.
+       *
+       * If the current reference is outside a nested
+       * function, assignments inside that function
+       * cannot affect the current value:
+       *
+       *   let p = props;
+       *
+       *   function update() {
+       *     p = local;
+       *   }
+       *
+       *   return p.name;
+       *
+       * The update() body has not executed yet.
+       *
+       * However, when the reference itself is inside
+       * the nested function, assignments in that
+       * function must be considered:
+       *
+       *   let p = props;
+       *
+       *   function render() {
+       *     p = local;
+       *     return p.name;
+       *   }
+       */
+      if (
+        node !== scope &&
+        ts.isFunctionLike(node)
+      ) {
+        const useScope =
+          findScope(useNode);
+
+        if (
+          useScope !== node
+        ) {
+          return;
+        }
+      }
+
+      /*
+       * Nothing at or after the reference
+       * can affect this particular use.
+       */
+      if (
+        node.getStart() >=
+        referenceStart
+      ) {
+        return;
+      }
+
+      if (
+        ts.isBinaryExpression(node) &&
+        ts.isIdentifier(node.left)
+      ) {
+        const leftSymbol =
           typeChecker.getSymbolAtLocation(
-            latestAssignment.right,
+            node.left,
           );
 
         if (
-          assignmentSymbol !== undefined &&
-          references(assignmentSymbol)
+          leftSymbol === symbol
+        ) {
+          if (
+            isConditionallyExecuted(
+              node,
+            )
+          ) {
+            addPossibleValue(
+              node.right,
+            );
+          } else {
+            /*
+             * An unconditional assignment
+             * invalidates all earlier values.
+             */
+            possibleValues.length = 0;
+
+            addPossibleValue(
+              node.right,
+            );
+          }
+        }
+      }
+
+      ts.forEachChild(
+        node,
+        visit,
+      );
+    }
+
+    visit(scope);
+
+    if (
+      possibleValues.length === 0
+    ) {
+      return false;
+    }
+
+    /*
+     * If ANY possible value resolves back to
+     * props, the access is unsafe.
+     */
+    for (
+      const possibleValue of
+      possibleValues
+    ) {
+      if (
+        ts.isIdentifier(
+          possibleValue,
+        )
+      ) {
+        const referencedSymbol =
+          typeChecker.getSymbolAtLocation(
+            possibleValue,
+          );
+
+        if (
+          referencedSymbol !==
+          undefined &&
+          resolve(
+            referencedSymbol,
+            possibleValue,
+          )
+        ) {
+          return true;
+        }
+
+        continue;
+      }
+
+      /*
+       * Follow property/element access back
+       * to its root expression.
+       *
+       * Example:
+       *
+       *   currentProps = props.user;
+       */
+      if (
+        ts.isPropertyAccessExpression(
+          possibleValue,
+        )
+      ) {
+        if (
+          resolveExpressionRoot(
+            possibleValue.expression,
+            typeChecker,
+            resolve,
+          )
+        ) {
+          return true;
+        }
+
+        continue;
+      }
+
+      if (
+        ts.isElementAccessExpression(
+          possibleValue,
+        )
+      ) {
+        if (
+          resolveExpressionRoot(
+            possibleValue.expression,
+            typeChecker,
+            resolve,
+          )
         ) {
           return true;
         }
@@ -1008,7 +2036,72 @@ function symbolReferencesProps(
     return false;
   }
 
-  return references(
+  if (
+    referenceNode === undefined
+  ) {
+    return (
+      initializerSymbol ===
+      propsSymbol
+    );
+  }
+
+  return resolve(
     initializerSymbol,
+    referenceNode,
   );
+}
+
+function resolveExpressionRoot(
+  expression: ts.Expression,
+  typeChecker: ts.TypeChecker,
+  resolveSymbol: (
+    symbol: ts.Symbol,
+    useNode: ts.Node,
+  ) => boolean,
+): boolean {
+  if (
+    ts.isIdentifier(expression)
+  ) {
+    const symbol =
+      typeChecker.getSymbolAtLocation(
+        expression,
+      );
+
+    if (
+      symbol === undefined
+    ) {
+      return false;
+    }
+
+    return resolveSymbol(
+      symbol,
+      expression,
+    );
+  }
+
+  if (
+    ts.isPropertyAccessExpression(
+      expression,
+    )
+  ) {
+    return resolveExpressionRoot(
+      expression.expression,
+      typeChecker,
+      resolveSymbol,
+    );
+  }
+
+  if (
+    ts.isElementAccessExpression(
+      expression,
+    )
+  ) {
+    return resolveExpressionRoot(
+      expression.expression,
+      typeChecker,
+      resolveSymbol,
+    );
+  }
+
+  return false;
 }

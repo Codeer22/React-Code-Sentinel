@@ -365,13 +365,15 @@ function isPropsMutationTarget(
      * Track the latest value assigned to
      * this symbol before the reference.
      *
-     * This includes both:
+     * This includes:
      *
      *   const currentProps = props;
      *
      * and:
      *
      *   currentProps = props;
+     *
+     * The latest value wins.
      */
     let latestValue:
       | ts.Expression
@@ -478,12 +480,42 @@ function isPropsMutationTarget(
      * Find later assignments to this exact
      * symbol.
      *
-     * The latest assignment wins over the
-     * original initializer.
+     * Assignments inside nested functions are
+     * intentionally ignored because they do
+     * not necessarily execute before the
+     * reference being analyzed.
      */
     function visit(
       current: ts.Node,
     ): void {
+      /*
+       * Do not inspect nested functions.
+       *
+       * Example:
+       *
+       *   let currentProps = props;
+       *
+       *   function update() {
+       *     currentProps = {};
+       *   }
+       *
+       *   return currentProps.name;
+       *
+       * The assignment inside update() should
+       * not invalidate the alias for the outer
+       * reference.
+       */
+      if (
+        current !== scope &&
+        ts.isFunctionLike(current)
+      ) {
+        return;
+      }
+
+      /*
+       * Nothing at or after the reference can
+       * affect its current value.
+       */
       if (
         current.getStart() >=
         useNode.getStart()
@@ -516,6 +548,24 @@ function isPropsMutationTarget(
             latestPosition =
               position;
 
+            /*
+             * Important:
+             *
+             * current.right may be:
+             *
+             *   props
+             *
+             * or:
+             *
+             *   { name: "Local" }
+             *
+             * or another expression.
+             *
+             * Keeping the actual expression allows
+             * isPropsMutationTarget() to determine
+             * whether the new value still comes
+             * from props.
+             */
             latestValue =
               current.right;
           }
@@ -530,6 +580,16 @@ function isPropsMutationTarget(
 
     visit(scope);
 
+    /*
+     * Resolve the latest known value.
+     *
+     * If the alias was reassigned to a local
+     * object, isPropsMutationTarget() returns
+     * false.
+     *
+     * If it was later reassigned to props again,
+     * it returns true.
+     */
     if (
       latestValue !== undefined
     ) {
