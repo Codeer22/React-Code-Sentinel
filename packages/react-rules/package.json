@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@react-code-sentinel/analyzers": "0.1.0",
-    "@react-code-sentinel/core": "0.1.0"
+    "@react-code-sentinel/core": "0.1.0",
+    "@typescript/typescript6": "^6.0.2"
   },
   "scripts": {
     "build": "tsc",

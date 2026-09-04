@@ -1,5 +1,5 @@
 {
-  "name": "react-code-sentinel",
+  "name": "@react-code-sentinel/cli",
   "version": "0.1.0",
   "description": "Diagnose React codebase health.",
   "type": "module",
