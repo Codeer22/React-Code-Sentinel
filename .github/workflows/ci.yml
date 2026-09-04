@@ -39,7 +39,7 @@ jobs:
         run: npm run build --workspace=@react-code-sentinel/eslint-rules
 
       - name: Build CLI
-        run: npm run build --workspace=react-code-sentinel
+        run: npm run build --workspace=@react-code-sentinel/cli
 
       - name: Typecheck
         run: npm run typecheck
