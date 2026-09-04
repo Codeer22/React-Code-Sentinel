@@ -34,3 +34,4 @@ export interface Diagnostic {
   readonly suggestion?: string;
   readonly documentationUrl?: string;
 }
+

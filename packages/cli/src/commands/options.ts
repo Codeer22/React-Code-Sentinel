@@ -1,6 +1,6 @@
 import type {
   DiagnosticCategory,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export type OutputFormat =
   | "terminal"
@@ -14,6 +14,7 @@ export interface CliOptions {
   readonly help: boolean;
   readonly version: boolean;
   readonly listRules: boolean;
+  readonly all: boolean;
 }
 
 export function parseCliOptions(
@@ -29,6 +30,7 @@ export function parseCliOptions(
   let help = false;
   let version = false;
   let listRules = false;
+  let all = false;
 
   for (
     let index = 0;
@@ -56,6 +58,11 @@ export function parseCliOptions(
 
     if (argument === "--list-rules") {
       listRules = true;
+      continue;
+    }
+
+    if (argument === "--all") {
+      all = true;
       continue;
     }
 
@@ -141,6 +148,7 @@ export function parseCliOptions(
     help,
     version,
     listRules,
+    all,
   };
 }
 

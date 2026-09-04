@@ -1,7 +1,7 @@
 {
-  "name": "@react-doctor/eslint-rules",
+  "name": "@react-code-sentinel/eslint-rules",
   "version": "0.1.0",
-  "description": "ESLint integration for React Doctor diagnostics.",
+  "description": "ESLint integration for React Code Sentinel diagnostics.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,13 +12,13 @@
     }
   },
   "dependencies": {
-    "@react-doctor/core": "0.1.0",
-    "@react-doctor/react-rules": "0.1.0"
+    "@react-code-sentinel/core": "0.1.0",
+    "@react-code-sentinel/react-rules": "0.1.0"
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\""
+    "test": "tsc -p tsconfig.test.json && node ../../scripts/run-tests.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0"

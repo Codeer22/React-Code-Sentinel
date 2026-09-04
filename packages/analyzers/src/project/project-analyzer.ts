@@ -8,34 +8,38 @@ import {
 
 import {
   runRules,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 import type {
   AnalysisContext,
   DoctorConfig,
   Diagnostic,
-} from "@react-doctor/core";
-
-import {
-  parseSource,
-} from "../parser/source-parser.js";
+} from "@react-code-sentinel/core";
 
 import {
   createAstAnalysisContext,
 } from "../analysis/create-ast-context.js";
 
 import {
+  createSemanticAnalysisContext,
+} from "../analysis/create-semantic-context.js";
+
+import {
   discoverSourceFiles,
 } from "./file-discovery.js";
 
+import {
+  createTypeScriptProgram,
+} from "./program-builder.js";
+
 import type {
-  AstRule,
-} from "../analysis/ast-rule.js";
+  AnalyzerRule,
+} from "../analysis/analyzer-rule.js";
 
 export interface ProjectAnalysisOptions {
   readonly rootDirectory: string;
   readonly config?: DoctorConfig;
-  readonly rules: readonly AstRule[];
+  readonly rules: readonly AnalyzerRule[];
 }
 
 export interface ProjectAnalysisResult {
@@ -52,24 +56,44 @@ export async function analyzeProject(
 
   const config = options.config ?? {};
 
-  const discoveryOptions =
-    config.exclude === undefined
-      ? {}
-      : {
-          ignoreDirectories: config.exclude,
-        };
+  const discoveryOptions: {
+    ignoreDirectories?: readonly string[];
+    ignoreFiles?: readonly string[];
+    includeFiles?: readonly string[];
+  } = {};
+
+  if (config.exclude !== undefined) {
+    discoveryOptions.ignoreDirectories =
+      config.exclude;
+  }
+
+  if (config.ignore !== undefined) {
+    discoveryOptions.ignoreFiles =
+      config.ignore;
+  }
+
+  if (config.include !== undefined) {
+    discoveryOptions.includeFiles =
+      config.include;
+  }
 
   const files = await discoverSourceFiles(
     rootDirectory,
     discoveryOptions,
   );
 
-  const diagnostics: Diagnostic[] = [];
-
   const project = {
     rootDirectory,
     files,
   };
+
+  const program =
+    await createTypeScriptProgram({
+      rootDirectory,
+      files,
+    });
+
+  const diagnostics: Diagnostic[] = [];
 
   for (const filePath of files) {
     const absolutePath = resolve(
@@ -82,10 +106,14 @@ export async function analyzeProject(
       "utf8",
     );
 
-    const parsed = parseSource(
-      filePath,
-      sourceText,
-    );
+    const sourceFile =
+      program.getSourceFile(
+        absolutePath,
+      );
+
+    if (sourceFile === undefined) {
+      continue;
+    }
 
     const coreContext: AnalysisContext = {
       document: {
@@ -100,10 +128,16 @@ export async function analyzeProject(
       diagnostics,
     };
 
-    const context =
+    const astContext =
       createAstAnalysisContext(
         coreContext,
-        parsed.sourceFile,
+        sourceFile,
+      );
+
+    const context =
+      createSemanticAnalysisContext(
+        astContext,
+        program,
       );
 
     const ruleResult = runRules(

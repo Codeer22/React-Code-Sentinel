@@ -189,6 +189,19 @@ test(
 );
 
 test(
+  "parses all flag",
+  () => {
+    const result = parseCliOptions([
+      "--all",
+    ]);
+
+    assert.equal(
+      result.all,
+      true,
+    );
+  },
+);
+test(
   "defaults to terminal format",
   () => {
     const result = parseCliOptions([]);
@@ -241,3 +254,4 @@ test(
     );
   },
 );
+

@@ -13,7 +13,7 @@ import {
 
 import type {
   DoctorConfig,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export interface LoadConfigOptions {
   readonly directory: string;
@@ -24,8 +24,11 @@ export interface LoadedConfig {
   readonly path: string | undefined;
 }
 
-const CONFIG_FILE_NAME =
-  "react-doctor.config.js";
+const CONFIG_FILE_NAMES = [
+  "react-code-sentinel.config.js",
+  "react-code-sentinel.config.mjs",
+  "react-code-sentinel.config.cjs",
+] as const;
 
 export async function loadConfig(
   options: LoadConfigOptions,
@@ -34,36 +37,40 @@ export async function loadConfig(
     options.directory,
   );
 
-  const configPath = join(
-    rootDirectory,
-    CONFIG_FILE_NAME,
-  );
+  for (const fileName of CONFIG_FILE_NAMES) {
+    const configPath = join(
+      rootDirectory,
+      fileName,
+    );
 
-  if (!(await fileExists(configPath))) {
+    if (!(await fileExists(configPath))) {
+      continue;
+    }
+
+    const module = await import(
+      pathToFileURL(configPath).href,
+    );
+
+    const config = module.default;
+
+    if (
+      config === null ||
+      typeof config !== "object"
+    ) {
+      throw new Error(
+        `Invalid configuration in ${configPath}: default export must be an object.`,
+      );
+    }
+
     return {
-      config: {},
-      path: undefined,
+      config: config as DoctorConfig,
+      path: configPath,
     };
   }
 
-  const module = await import(
-    pathToFileURL(configPath).href
-  );
-
-  const config = module.default;
-
-  if (
-    config === null ||
-    typeof config !== "object"
-  ) {
-    throw new Error(
-      `Invalid configuration in ${configPath}: default export must be an object.`,
-    );
-  }
-
   return {
-    config: config as DoctorConfig,
-    path: configPath,
+    config: {},
+    path: undefined,
   };
 }
 

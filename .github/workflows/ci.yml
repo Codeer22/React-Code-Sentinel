@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - feat/rename-to-react-code-sentinel
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build core
+        run: npm run build --workspace=@react-code-sentinel/core
+
+      - name: Build analyzers
+        run: npm run build --workspace=@react-code-sentinel/analyzers
+
+      - name: Build React rules
+        run: npm run build --workspace=@react-code-sentinel/react-rules
+
+      - name: Build ESLint rules
+        run: npm run build --workspace=@react-code-sentinel/eslint-rules
+
+      - name: Build CLI
+        run: npm run build --workspace=@react-code-sentinel/cli
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test

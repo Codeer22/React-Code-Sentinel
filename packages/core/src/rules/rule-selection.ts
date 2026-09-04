@@ -3,18 +3,22 @@ import type {
 } from "../types/diagnostic.js";
 
 import type {
-  Rule,
-} from "../types/rule.js";
+  RuleMetadata,
+} from "./rule-types.js";
 
 export interface RuleSelectionOptions {
   readonly ruleIds?: readonly string[];
   readonly categories?: readonly DiagnosticCategory[];
 }
 
-export function selectRules(
-  rules: readonly Rule[],
+export function selectRules<
+  T extends {
+    readonly meta: RuleMetadata;
+  },
+>(
+  rules: readonly T[],
   options: RuleSelectionOptions = {},
-): readonly Rule[] {
+): readonly T[] {
   const {
     ruleIds,
     categories,
@@ -24,7 +28,7 @@ export function selectRules(
     if (
       ruleIds !== undefined &&
       ruleIds.length > 0 &&
-      !ruleIds.includes(rule.id)
+      !ruleIds.includes(rule.meta.id)
     ) {
       return false;
     }
@@ -32,7 +36,7 @@ export function selectRules(
     if (
       categories !== undefined &&
       categories.length > 0 &&
-      !categories.includes(rule.category)
+      !categories.includes(rule.meta.category)
     ) {
       return false;
     }

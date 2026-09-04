@@ -29,7 +29,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-config-",
+          "react-code-sentinel.config-",
         ),
       );
 
@@ -67,7 +67,7 @@ test(
       await mkdtemp(
         join(
           tmpdir(),
-          "react-doctor-config-",
+          "react-code-sentinel.config-",
         ),
       );
 
@@ -75,7 +75,7 @@ test(
       await writeFile(
         join(
           directory,
-          "react-doctor.config.js",
+          "react-code-sentinel.config.js",
         ),
         [
           "export default {",
@@ -103,8 +103,260 @@ test(
         result.path,
         join(
           directory,
-          "react-doctor.config.js",
+          "react-code-sentinel.config.js",
         ),
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
+test(
+  "loads configuration from an mjs file",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel.config-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(
+          directory,
+          "react-code-sentinel.config.mjs",
+        ),
+        [
+          "export default {",
+          "  rules: {",
+          '    "react/no-unsafe-prop-access": "error"',
+          "  }",
+          "};",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const result =
+        await loadConfig({
+          directory,
+        });
+
+      assert.equal(
+        result.config.rules?.[
+          "react/no-unsafe-prop-access"
+        ],
+        "error",
+      );
+
+      assert.equal(
+        result.path,
+        join(
+          directory,
+          "react-code-sentinel.config.mjs",
+        ),
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
+test(
+  "loads configuration from a cjs file",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel.config-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(
+          directory,
+          "react-code-sentinel.config.cjs",
+        ),
+        [
+          "module.exports = {",
+          "  rules: {",
+          '    "react/no-unsafe-prop-access": "error"',
+          "  }",
+          "};",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const result =
+        await loadConfig({
+          directory,
+        });
+
+      assert.equal(
+        result.config.rules?.[
+          "react/no-unsafe-prop-access"
+        ],
+        "error",
+      );
+
+      assert.equal(
+        result.path,
+        join(
+          directory,
+          "react-code-sentinel.config.cjs",
+        ),
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
+// test(
+//   "loads configuration from a module without a default export",
+//   async () => {
+//     const directory =
+//       await mkdtemp(
+//         join(
+//           tmpdir(),
+//           "react-code-sentinel.config-",
+//         ),
+//       );
+
+//     try {
+//       await writeFile(
+//         join(
+//           directory,
+//           "react-code-sentinel.config.js",
+//         ),
+//         [
+//           "export const rules = {",
+//           '  "react/no-unsafe-prop-access": "error"',
+//           "};",
+//         ].join("\n"),
+//         "utf8",
+//       );
+
+//       const result =
+//         await loadConfig({
+//           directory,
+//         });
+
+//       assert.equal(
+//         result.config.rules?.[
+//           "react/no-unsafe-prop-access"
+//         ],
+//         "error",
+//       );
+//     } finally {
+//       await rm(
+//         directory,
+//         {
+//           recursive: true,
+//           force: true,
+//         },
+//       );
+//     }
+//   },
+// );
+
+test(
+  "rejects a module without a default export",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel.config-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(
+          directory,
+          "react-code-sentinel.config.js",
+        ),
+        [
+          "export const rules = {",
+          '  "react/no-unsafe-prop-access": "error"',
+          "};",
+        ].join("\n"),
+        "utf8",
+      );
+
+      await assert.rejects(
+        loadConfig({
+          directory,
+        }),
+        {
+          message:
+            /Invalid configuration.*default export must be an object/,
+        },
+      );
+    } finally {
+      await rm(
+        directory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+    }
+  },
+);
+
+test(
+  "rejects invalid default configuration",
+  async () => {
+    const directory =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          "react-code-sentinel.config-",
+        ),
+      );
+
+    try {
+      await writeFile(
+        join(
+          directory,
+          "react-code-sentinel.config.js",
+        ),
+        "export default null;",
+        "utf8",
+      );
+
+      await assert.rejects(
+        loadConfig({
+          directory,
+        }),
+        {
+          message:
+            /Invalid configuration.*default export must be an object/,
+        },
       );
     } finally {
       await rm(

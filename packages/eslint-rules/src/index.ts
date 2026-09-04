@@ -1,6 +1,6 @@
 import type {
   Diagnostic,
-} from "@react-doctor/core";
+} from "@react-code-sentinel/core";
 
 export interface ReactDoctorLintMessage {
   readonly ruleId: string;
@@ -35,3 +35,4 @@ export function diagnosticToLintMessage(
       1,
   };
 }
+

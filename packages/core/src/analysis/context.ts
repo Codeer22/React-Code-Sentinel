@@ -21,3 +21,4 @@ export interface AnalysisContext {
   readonly config: DoctorConfig;
   readonly diagnostics: readonly Diagnostic[];
 }
+

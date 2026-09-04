@@ -1,5 +1,5 @@
 {
-  "name": "react-doctor",
+  "name": "react-code-sentinel",
   "version": "0.1.0",
   "private": true,
   "description": "A comprehensive static analysis and diagnostics engine for React applications.",
@@ -17,6 +17,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@types/node": "^26.3.0",
     "typescript": "^7.0.2"
   }
 }

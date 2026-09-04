@@ -27,15 +27,16 @@ const DEFAULT_IGNORED_DIRECTORIES = new Set([
 ]);
 
 const DEFAULT_IGNORED_FILES = new Set([
-  "react-doctor.config.js",
-  "react-doctor.config.mjs",
-  "react-doctor.config.cjs",
-  "react-doctor.config.ts",
+  "react-code-sentinel.config.js",
+  "react-code-sentinel.config.mjs",
+  "react-code-sentinel.config.cjs",
+  "react-code-sentinel.config.ts",
 ]);
 
 export interface FileDiscoveryOptions {
   readonly ignoreDirectories?: readonly string[];
   readonly ignoreFiles?: readonly string[];
+  readonly includeFiles?: readonly string[];
 }
 
 export async function discoverSourceFiles(
@@ -53,6 +54,16 @@ export async function discoverSourceFiles(
     ...DEFAULT_IGNORED_FILES,
     ...(options.ignoreFiles ?? []),
   ]);
+
+  const includedFiles =
+    options.includeFiles === undefined
+      ? undefined
+      : new Set(
+          options.includeFiles.map(
+            (filePath) =>
+              filePath.replaceAll("\\", "/"),
+          ),
+        );
 
   const files: string[] = [];
 
@@ -101,9 +112,19 @@ export async function discoverSourceFiles(
         continue;
       }
 
-      files.push(
-        relative(root, absolutePath),
-      );
+      const relativePath = relative(
+        root,
+        absolutePath,
+      ).replaceAll("\\", "/");
+
+      if (
+        includedFiles !== undefined &&
+        !includedFiles.has(relativePath)
+      ) {
+        continue;
+      }
+
+      files.push(relativePath);
     }
   }
 

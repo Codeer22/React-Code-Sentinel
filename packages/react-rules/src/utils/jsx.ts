@@ -24,3 +24,26 @@ export function containsJsx(node: ts.Node): boolean {
 
   return found;
 }
+
+export function getKeyAttribute(
+  node:
+    | ts.JsxElement
+    | ts.JsxSelfClosingElement,
+): ts.JsxAttribute | undefined {
+  const attributes =
+    ts.isJsxElement(node)
+      ? node.openingElement.attributes
+      : node.attributes;
+
+  for (const attribute of attributes.properties) {
+    if (
+      ts.isJsxAttribute(attribute) &&
+      ts.isIdentifier(attribute.name) &&
+      attribute.name.text === "key"
+    ) {
+      return attribute;
+    }
+  }
+
+  return undefined;
+}
