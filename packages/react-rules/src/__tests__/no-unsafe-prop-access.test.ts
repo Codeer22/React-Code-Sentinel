@@ -2178,6 +2178,40 @@ test(
 );
 
 test(
+  "reports outer destructured alias despite deeper nested reassignment",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Component(
+          props: any,
+        ) {
+          let { user } = props;
+
+          function outer() {
+            function inner() {
+              user = {};
+            }
+
+            return inner;
+          }
+
+          return user.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      2,
+    );
+  },
+);
+
+test(
   "ignores shadowed alias unrelated to props",
   () => {
     const context =
