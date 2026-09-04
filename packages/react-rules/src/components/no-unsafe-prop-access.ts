@@ -194,6 +194,31 @@ function isUnconditionalReassignmentOperator(
   }
 }
 
+function isWithin(
+  node: ts.Node,
+  container: ts.Node,
+): boolean {
+  let current:
+    | ts.Node
+    | undefined =
+    node.parent;
+
+  while (
+    current !== undefined
+  ) {
+    if (
+      current === container
+    ) {
+      return true;
+    }
+
+    current =
+      current.parent;
+  }
+
+  return false;
+}
+
 function isSymbolReassignedBefore(
   node: ts.Node,
   typeChecker: ts.TypeChecker,
@@ -348,6 +373,46 @@ function isSymbolReassignedBefore(
         ts.isConditionalExpression(current)
       ) {
         return true;
+      }
+
+      if (
+        ts.isTryStatement(current)
+      ) {
+        /*
+         * An assignment inside a try block may not
+         * execute. It is only a definite reassignment
+         * if a finally block also reassigns the symbol.
+         */
+        if (
+          current.tryBlock !== undefined &&
+          isWithin(assignment, current.tryBlock)
+        ) {
+          if (
+            current.finallyBlock !== undefined &&
+            statementDefinitelyAssignsSymbol(
+              current.finallyBlock,
+            )
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        if (
+          current.catchClause !== undefined &&
+          isWithin(
+            assignment,
+            current.catchClause.block,
+          )
+        ) {
+          return true;
+        }
+
+        /*
+         * In the finally block, the assignment always
+         * executes.
+         */
+        return false;
       }
 
       /*
@@ -1544,6 +1609,7 @@ function symbolReferencesProps(
 
   function isConditionallyExecuted(
     node: ts.Node,
+    symbol: ts.Symbol,
   ): boolean {
     let current:
       | ts.Node
@@ -1566,7 +1632,7 @@ function symbolReferencesProps(
           undefined &&
           statementDefinitelyAssignsSymbol(
             current,
-            initializerSymbol,
+            symbol,
           )
         ) {
           return false;
@@ -1599,6 +1665,47 @@ function symbolReferencesProps(
         ts.isDefaultClause(current)
       ) {
         return true;
+      }
+
+      if (
+        ts.isTryStatement(current)
+      ) {
+        /*
+         * An assignment inside a try block may not
+         * execute. It is only a definite reassignment
+         * if a finally block also reassigns the symbol.
+         */
+        if (
+          current.tryBlock !== undefined &&
+          isWithin(node, current.tryBlock)
+        ) {
+          if (
+            current.finallyBlock !== undefined &&
+            statementDefinitelyAssignsSymbol(
+              current.finallyBlock,
+              symbol,
+            )
+          ) {
+            return false;
+          }
+          return true;
+        }
+
+        if (
+          current.catchClause !== undefined &&
+          isWithin(
+            node,
+            current.catchClause.block,
+          )
+        ) {
+          return true;
+        }
+
+        /*
+         * In the finally block, the assignment always
+         * executes.
+         */
+        return false;
       }
 
       if (
@@ -1946,6 +2053,7 @@ function symbolReferencesProps(
           if (
             isConditionallyExecuted(
               node,
+              symbol,
             )
           ) {
             addPossibleValue(

@@ -2430,3 +2430,66 @@ test(
     );
   },
 );
+
+test(
+  "reports unsafe alias after try reassignment may not occur",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Component(
+          props: any,
+        ) {
+          let p = props;
+
+          try {
+            p = {};
+          } catch {
+          }
+
+          return p.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      1,
+    );
+  },
+);
+
+test(
+  "ignores unsafe alias after guaranteed try reassignment",
+  () => {
+    const context =
+      createSemanticContext(`
+        function Component(
+          props: any,
+        ) {
+          let p = props;
+
+          try {
+            p = {};
+          } finally {
+            p = {};
+          }
+
+          return p.name;
+        }
+      `);
+
+    const diagnostics =
+      noUnsafePropAccessRule.analyze(
+        context,
+      );
+
+    assert.equal(
+      diagnostics.length,
+      0,
+    );
+  },
+);
